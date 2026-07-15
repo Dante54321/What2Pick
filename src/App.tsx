@@ -1,25 +1,69 @@
 import { useState, type FormEvent } from 'react'
 import './App.css'
 
-type BracketPosition = 'random' | 'A1' | 'A2' | 'B1' | 'B2'
+type FixedBracketPosition = 'A1' | 'A2' | 'B1' | 'B2'
+type BracketPosition = 'random' | FixedBracketPosition
 
 type Game = {
   id: string
   name: string
   position: BracketPosition
+  randomOrder: number
 }
 
-const BRACKET_POSITIONS: BracketPosition[] = [
-  'random',
+const FIXED_BRACKET_POSITIONS: FixedBracketPosition[] = [
   'A1',
   'A2',
   'B1',
   'B2',
 ]
 
+const BRACKET_POSITIONS: BracketPosition[] = [
+  'random',
+  ...FIXED_BRACKET_POSITIONS,
+]
+
+function getBracketAssignments(games: Game[]) {
+  const assignments: Partial<
+    Record<FixedBracketPosition, Game>
+  > = {}
+
+  games.forEach((game) => {
+    if (game.position !== 'random') {
+      assignments[game.position] = game
+    }
+  })
+
+  const availablePositions = FIXED_BRACKET_POSITIONS.filter(
+    (position) => !assignments[position],
+  )
+
+  const randomGames = games
+    .filter((game) => game.position === 'random')
+    .sort((firstGame, secondGame) =>
+      firstGame.randomOrder - secondGame.randomOrder
+    )
+
+  randomGames.forEach((game, index) => {
+    const availablePosition = availablePositions[index]
+
+    if (availablePosition) {
+      assignments[availablePosition] = game
+    }
+  })
+
+  return assignments
+}
+
 function App() {
   const [gameName, setGameName] = useState('')
   const [games, setGames] = useState<Game[]>([])
+
+  const bracketAssignments = getBracketAssignments(games)
+
+  const randomGamesCount = games.filter(
+    (game) => game.position === 'random',
+  ).length
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -34,6 +78,7 @@ function App() {
       id: crypto.randomUUID(),
       name: trimmedName,
       position: 'random',
+      randomOrder: Math.random(),
     }
 
     setGames([...games, newGame])
@@ -55,10 +100,22 @@ function App() {
     )
   }
 
+  function shuffleRandomGames() {
+    setGames(
+      games.map((game) =>
+        game.position === 'random'
+          ? { ...game, randomOrder: Math.random() }
+          : game,
+      ),
+    )
+  }
+
   return (
     <main>
-      <h1>What2Pick</h1>
-      <p>Create a bracket. Make your choice.</p>
+      <header>
+        <h1>What2Pick</h1>
+        <p>Create a bracket. Make your choice.</p>
+      </header>
 
       <section>
         <h2>Add your games</h2>
@@ -134,6 +191,41 @@ function App() {
             ))}
           </ul>
         )}
+
+        <button
+          type="button"
+          onClick={shuffleRandomGames}
+          disabled={randomGamesCount < 2}
+        >
+          Shuffle random games
+        </button>
+      </section>
+
+      <section>
+        <h2>Bracket preview</h2>
+
+        <div>
+          <h3>Semifinals</h3>
+
+          <article>
+            <h4>Match A</h4>
+            <p>A1: {bracketAssignments.A1?.name ?? 'Empty'}</p>
+            <p>A2: {bracketAssignments.A2?.name ?? 'Empty'}</p>
+          </article>
+
+          <article>
+            <h4>Match B</h4>
+            <p>B1: {bracketAssignments.B1?.name ?? 'Empty'}</p>
+            <p>B2: {bracketAssignments.B2?.name ?? 'Empty'}</p>
+          </article>
+        </div>
+
+        <div>
+          <h3>Final</h3>
+          <p>Winner of Match A</p>
+          <p>vs.</p>
+          <p>Winner of Match B</p>
+        </div>
       </section>
     </main>
   )
