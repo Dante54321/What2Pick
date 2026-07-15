@@ -1,10 +1,21 @@
 import { useState, type FormEvent } from 'react'
 import './App.css'
 
+type BracketPosition = 'random' | 'A1' | 'A2' | 'B1' | 'B2'
+
 type Game = {
   id: string
   name: string
+  position: BracketPosition
 }
+
+const BRACKET_POSITIONS: BracketPosition[] = [
+  'random',
+  'A1',
+  'A2',
+  'B1',
+  'B2',
+]
 
 function App() {
   const [gameName, setGameName] = useState('')
@@ -22,6 +33,7 @@ function App() {
     const newGame: Game = {
       id: crypto.randomUUID(),
       name: trimmedName,
+      position: 'random',
     }
 
     setGames([...games, newGame])
@@ -30,6 +42,17 @@ function App() {
 
   function removeGame(gameId: string) {
     setGames(games.filter((game) => game.id !== gameId))
+  }
+
+  function updateGamePosition(
+    gameId: string,
+    position: BracketPosition,
+  ) {
+    setGames(
+      games.map((game) =>
+        game.id === gameId ? { ...game, position } : game,
+      ),
+    )
   }
 
   return (
@@ -65,7 +88,46 @@ function App() {
             {games.map((game) => (
               <li key={game.id}>
                 <span>{game.name}</span>
-                <button type="button" onClick={() => removeGame(game.id)}>
+
+                <label htmlFor={`position-${game.id}`}>
+                  Position
+                </label>
+
+                <select
+                  id={`position-${game.id}`}
+                  value={game.position}
+                  onChange={(event) =>
+                    updateGamePosition(
+                      game.id,
+                      event.target.value as BracketPosition,
+                    )
+                  }
+                >
+                  {BRACKET_POSITIONS.map((position) => {
+                    const isOccupied =
+                      position !== 'random' &&
+                      games.some(
+                        (otherGame) =>
+                          otherGame.id !== game.id &&
+                          otherGame.position === position,
+                      )
+
+                    return (
+                      <option
+                        key={position}
+                        value={position}
+                        disabled={isOccupied}
+                      >
+                        {position === 'random' ? 'Random' : position}
+                      </option>
+                    )
+                  })}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => removeGame(game.id)}
+                >
                   Remove
                 </button>
               </li>
