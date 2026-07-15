@@ -23,7 +23,7 @@ const BRACKET_POSITIONS: BracketPosition[] = [
   ...FIXED_BRACKET_POSITIONS,
 ]
 
-function getBracketAssignments(games: Game[]) {
+function getBracketAssignments(games: Game[]) { 
   const assignments: Partial<
     Record<FixedBracketPosition, Game>
   > = {}
