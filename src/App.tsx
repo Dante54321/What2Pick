@@ -23,7 +23,7 @@ const BRACKET_POSITIONS: BracketPosition[] = [
   ...FIXED_BRACKET_POSITIONS,
 ]
 
-function getBracketAssignments(games: Game[]) { 
+function getBracketAssignments(games: Game[]) {
   const assignments: Partial<
     Record<FixedBracketPosition, Game>
   > = {}
@@ -58,6 +58,7 @@ function getBracketAssignments(games: Game[]) {
 function App() {
   const [gameName, setGameName] = useState('')
   const [games, setGames] = useState<Game[]>([])
+  const [bracketStarted, setBracketStarted] = useState(false)
 
   const bracketAssignments = getBracketAssignments(games)
 
@@ -70,7 +71,7 @@ function App() {
 
     const trimmedName = gameName.trim()
 
-    if (!trimmedName || games.length >= 4) {
+    if (!trimmedName || games.length >= 4 || bracketStarted) {
       return
     }
 
@@ -110,6 +111,17 @@ function App() {
     )
   }
 
+  function toggleBracket() {
+    if (bracketStarted) {
+      setBracketStarted(false)
+      return
+    }
+
+    if (games.length === 4) {
+      setBracketStarted(true)
+    }
+  }
+
   return (
     <main>
       <header>
@@ -130,10 +142,10 @@ function App() {
             placeholder="Example: Elden Ring"
             value={gameName}
             onChange={(event) => setGameName(event.target.value)}
-            disabled={games.length >= 4}
+            disabled={bracketStarted || games.length >= 4}
           />
 
-          <button type="submit" disabled={games.length >= 4}>
+          <button type="submit" disabled={bracketStarted || games.length >= 4}>
             Add game
           </button>
         </form>
@@ -159,6 +171,7 @@ function App() {
                       event.target.value as BracketPosition,
                     )
                   }
+                  disabled={bracketStarted}
                 >
                   {BRACKET_POSITIONS.map((position) => {
                     const isOccupied =
@@ -184,6 +197,7 @@ function App() {
                 <button
                   type="button"
                   onClick={() => removeGame(game.id)}
+                  disabled={bracketStarted}
                 >
                   Remove
                 </button>
@@ -195,10 +209,23 @@ function App() {
         <button
           type="button"
           onClick={shuffleRandomGames}
-          disabled={randomGamesCount < 2}
+          disabled={bracketStarted || randomGamesCount < 2}
         >
           Shuffle random games
         </button>
+        <button
+          type="button"
+          onClick={toggleBracket}
+          disabled={!bracketStarted && games.length !== 4}
+        >
+          {bracketStarted ? 'Edit bracket setup' : 'Start bracket'}
+        </button>
+
+        {bracketStarted && (
+          <p role="status">
+            Bracket started. The setup is now locked.
+          </p>
+        )}
       </section>
 
       <section>
