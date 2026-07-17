@@ -11,7 +11,7 @@ main {
   gap: 1.5rem;
 }
 
-main > header {
+main>header {
   grid-column: 1 / -1;
   text-align: center;
   margin-bottom: 0.5rem;
@@ -26,13 +26,13 @@ h1 {
   color: transparent;
 }
 
-main > header p {
+main>header p {
   margin: 1rem 0 0;
   color: #aeb9cc;
   font-size: 1.1rem;
 }
 
-main > section {
+main>section {
   padding: 1.5rem;
   background: rgba(17, 24, 39, 0.88);
   border: 1px solid #2b3548;
@@ -51,7 +51,7 @@ h2 {
   font-size: 1.45rem;
 }
 
-section > p {
+section>p {
   margin-top: 0;
   color: #9da9bc;
 }
@@ -162,14 +162,14 @@ li button:hover:not(:disabled) {
   background: #7f1d1d;
 }
 
-main > section:first-of-type > button {
+main>section:first-of-type>button {
   width: 100%;
   margin-top: 1rem;
 }
 
 /* Bracket */
 
-main > section:last-of-type {
+main>section:last-of-type {
   display: grid;
   grid-template-columns: minmax(210px, 1fr) minmax(180px, 0.8fr);
   gap: 1.9rem;
@@ -177,18 +177,18 @@ main > section:last-of-type {
   overflow: hidden;
 }
 
-main > section:last-of-type > h2 {
+main>section:last-of-type>h2 {
   grid-column: 1 / -1;
 }
 
-main > section:last-of-type > div:first-of-type {
+main>section:last-of-type>div:first-of-type {
   position: relative;
   display: grid;
   gap: 1rem;
   padding-right: 1.75rem;
 }
 
-main > section:last-of-type > div:first-of-type > h3 {
+main>section:last-of-type>div:first-of-type>h3 {
   margin: 0;
   text-align: center;
 }
@@ -210,7 +210,7 @@ article::after {
   content: "";
 }
 
-main > section:last-of-type > div:first-of-type::after {
+main>section:last-of-type>div:first-of-type::after {
   position: absolute;
   top: 6.8rem;
   right: 0;
@@ -229,7 +229,7 @@ article p {
   color: #cbd5e1;
 }
 
-main > section:last-of-type > div:last-of-type {
+main>section:last-of-type>div:last-of-type {
   position: relative;
   padding: 1.25rem;
   text-align: center;
@@ -238,7 +238,7 @@ main > section:last-of-type > div:last-of-type {
   border-radius: 0.8rem;
 }
 
-main > section:last-of-type > div:last-of-type::before {
+main>section:last-of-type>div:last-of-type::before {
   position: absolute;
   top: 50%;
   left: -1.95rem;
@@ -247,14 +247,62 @@ main > section:last-of-type > div:last-of-type::before {
   content: "";
 }
 
-main > section:last-of-type > div:last-of-type h3 {
+main>section:last-of-type>div:last-of-type h3 {
   margin-top: 0;
   color: #ddd6fe;
 }
 
-main > section:last-of-type > div:last-of-type p {
+main>section:last-of-type>div:last-of-type p {
   margin: 0.45rem 0;
   color: #cbd5e1;
+}
+
+.bracket-choice {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: center;
+  margin: 0.5rem 0;
+  padding: 0.7rem 0.75rem;
+  color: #e5e7eb;
+  background: #111827;
+  border: 1px solid #334155;
+  text-align: left;
+  font-weight: 500;
+}
+
+.bracket-choice strong {
+  color: #a78bfa;
+}
+
+.bracket-choice span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bracket-choice:hover:not(:disabled) {
+  background: #1e1b4b;
+  border-color: #8b5cf6;
+  transform: none;
+}
+
+.bracket-choice.selected {
+  background: rgba(124, 58, 237, 0.3);
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+}
+
+.bracket-choice:disabled {
+  color: #cbd5e1;
+  background: #111827;
+  border-color: #334155;
+  opacity: 0.75;
+}
+
+main>section:first-of-type>p[role="status"] {
+  margin: 0.75rem 0 0;
 }
 
 @media (max-width: 780px) {
@@ -262,7 +310,7 @@ main > section:last-of-type > div:last-of-type p {
     grid-template-columns: 1fr;
   }
 
-  main > header {
+  main>header {
     grid-column: 1;
   }
 }
@@ -294,17 +342,17 @@ main > section:last-of-type > div:last-of-type p {
     grid-row: 1 / 4;
   }
 
-  main > section:last-of-type {
+  main>section:last-of-type {
     grid-template-columns: 1fr;
   }
 
-  main > section:last-of-type > h2 {
+  main>section:last-of-type>h2 {
     grid-column: 1;
   }
 
   article::after,
-  main > section:last-of-type > div:first-of-type::after,
-  main > section:last-of-type > div:last-of-type::before {
+  main>section:last-of-type>div:first-of-type::after,
+  main>section:last-of-type>div:last-of-type::before {
     display: none;
   }
 }

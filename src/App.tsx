@@ -1,3 +1,6 @@
+//npm run dev
+//shift + alt + f correct indentation
+
 import { useState, type FormEvent } from 'react'
 import './App.css'
 
@@ -59,8 +62,18 @@ function App() {
   const [gameName, setGameName] = useState('')
   const [games, setGames] = useState<Game[]>([])
   const [bracketStarted, setBracketStarted] = useState(false)
+  const [matchAWinnerId, setMatchAWinnerId] = useState<string | null>(null)
+  const [matchBWinnerId, setMatchBWinnerId] = useState<string | null>(null)
 
   const bracketAssignments = getBracketAssignments(games)
+
+  const matchAWinner = games.find(
+    (game) => game.id === matchAWinnerId,
+  )
+
+  const matchBWinner = games.find(
+    (game) => game.id === matchBWinnerId,
+  )
 
   const randomGamesCount = games.filter(
     (game) => game.position === 'random',
@@ -111,13 +124,32 @@ function App() {
     )
   }
 
+  function selectSemifinalWinner(
+    match: 'A' | 'B',
+    game: Game | undefined,
+  ) {
+    if (!bracketStarted || !game) {
+      return
+    }
+
+    if (match === 'A') {
+      setMatchAWinnerId(game.id)
+    } else {
+      setMatchBWinnerId(game.id)
+    }
+  }
+
   function toggleBracket() {
     if (bracketStarted) {
       setBracketStarted(false)
+      setMatchAWinnerId(null)
+      setMatchBWinnerId(null)
       return
     }
 
     if (games.length === 4) {
+      setMatchAWinnerId(null)
+      setMatchBWinnerId(null)
       setBracketStarted(true)
     }
   }
@@ -236,22 +268,82 @@ function App() {
 
           <article>
             <h4>Match A</h4>
-            <p>A1: {bracketAssignments.A1?.name ?? 'Empty'}</p>
-            <p>A2: {bracketAssignments.A2?.name ?? 'Empty'}</p>
+
+            <button
+              type="button"
+              className={
+                matchAWinnerId === bracketAssignments.A1?.id
+                  ? 'bracket-choice selected'
+                  : 'bracket-choice'
+              }
+              onClick={() =>
+                selectSemifinalWinner('A', bracketAssignments.A1)
+              }
+              disabled={!bracketStarted || !bracketAssignments.A1}
+            >
+              <strong>A1:</strong>
+              <span>{bracketAssignments.A1?.name ?? 'Empty'}</span>
+            </button>
+
+            <button
+              type="button"
+              className={
+                matchAWinnerId === bracketAssignments.A2?.id
+                  ? 'bracket-choice selected'
+                  : 'bracket-choice'
+              }
+              onClick={() =>
+                selectSemifinalWinner('A', bracketAssignments.A2)
+              }
+              disabled={!bracketStarted || !bracketAssignments.A2}
+            >
+              <strong>A2:</strong>
+              <span>{bracketAssignments.A2?.name ?? 'Empty'}</span>
+            </button>
           </article>
 
           <article>
             <h4>Match B</h4>
-            <p>B1: {bracketAssignments.B1?.name ?? 'Empty'}</p>
-            <p>B2: {bracketAssignments.B2?.name ?? 'Empty'}</p>
+
+            <button
+              type="button"
+              className={
+                matchBWinnerId === bracketAssignments.B1?.id
+                  ? 'bracket-choice selected'
+                  : 'bracket-choice'
+              }
+              onClick={() =>
+                selectSemifinalWinner('B', bracketAssignments.B1)
+              }
+              disabled={!bracketStarted || !bracketAssignments.B1}
+            >
+              <strong>B1:</strong>
+              <span>{bracketAssignments.B1?.name ?? 'Empty'}</span>
+            </button>
+
+            <button
+              type="button"
+              className={
+                matchBWinnerId === bracketAssignments.B2?.id
+                  ? 'bracket-choice selected'
+                  : 'bracket-choice'
+              }
+              onClick={() =>
+                selectSemifinalWinner('B', bracketAssignments.B2)
+              }
+              disabled={!bracketStarted || !bracketAssignments.B2}
+            >
+              <strong>B2:</strong>
+              <span>{bracketAssignments.B2?.name ?? 'Empty'}</span>
+            </button>
           </article>
         </div>
 
         <div>
           <h3>Final</h3>
-          <p>Winner of Match A</p>
+          <p>{matchAWinner?.name ?? 'Winner of Match A'}</p>
           <p>vs.</p>
-          <p>Winner of Match B</p>
+          <p>{matchBWinner?.name ?? 'Winner of Match B'}</p>
         </div>
       </section>
     </main>
