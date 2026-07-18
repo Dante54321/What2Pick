@@ -64,6 +64,7 @@ function App() {
   const [bracketStarted, setBracketStarted] = useState(false)
   const [matchAWinnerId, setMatchAWinnerId] = useState<string | null>(null)
   const [matchBWinnerId, setMatchBWinnerId] = useState<string | null>(null)
+  const [championId, setChampionId] = useState<string | null>(null)
 
   const bracketAssignments = getBracketAssignments(games)
 
@@ -73,6 +74,10 @@ function App() {
 
   const matchBWinner = games.find(
     (game) => game.id === matchBWinnerId,
+  )
+
+  const champion = games.find(
+    (game) => game.id === championId,
   )
 
   const randomGamesCount = games.filter(
@@ -132,6 +137,8 @@ function App() {
       return
     }
 
+    setChampionId(null)
+
     if (match === 'A') {
       setMatchAWinnerId(game.id)
     } else {
@@ -139,11 +146,25 @@ function App() {
     }
   }
 
+  function selectChampion(game: Game | undefined) {
+    if (
+      !bracketStarted ||
+      !game ||
+      !matchAWinner ||
+      !matchBWinner
+    ) {
+      return
+    }
+
+    setChampionId(game.id)
+  }
+
   function toggleBracket() {
     if (bracketStarted) {
       setBracketStarted(false)
       setMatchAWinnerId(null)
       setMatchBWinnerId(null)
+      setChampionId(null)
       return
     }
 
@@ -151,6 +172,7 @@ function App() {
       setMatchAWinnerId(null)
       setMatchBWinnerId(null)
       setBracketStarted(true)
+      setChampionId(null)
     }
   }
 
@@ -341,9 +363,41 @@ function App() {
 
         <div>
           <h3>Final</h3>
-          <p>{matchAWinner?.name ?? 'Winner of Match A'}</p>
+
+          <button
+            type="button"
+            className={
+              championId === matchAWinner?.id
+                ? 'final-choice selected'
+                : 'final-choice'
+            }
+            onClick={() => selectChampion(matchAWinner)}
+            disabled={!matchAWinner || !matchBWinner}
+          >
+            {matchAWinner?.name ?? 'Winner of Match A'}
+          </button>
+
           <p>vs.</p>
-          <p>{matchBWinner?.name ?? 'Winner of Match B'}</p>
+
+          <button
+            type="button"
+            className={
+              championId === matchBWinner?.id
+                ? 'final-choice selected'
+                : 'final-choice'
+            }
+            onClick={() => selectChampion(matchBWinner)}
+            disabled={!matchAWinner || !matchBWinner}
+          >
+            {matchBWinner?.name ?? 'Winner of Match B'}
+          </button>
+
+          {champion && (
+            <div className="champion-result" role="status">
+              <p>Champion</p>
+              <h3>{champion.name}</h3>
+            </div>
+          )}
         </div>
       </section>
     </main>

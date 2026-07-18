@@ -305,6 +305,59 @@ main>section:first-of-type>p[role="status"] {
   margin: 0.75rem 0 0;
 }
 
+.final-choice {
+  width: 100%;
+  margin: 0.5rem 0;
+  padding: 0.7rem 0.75rem;
+  color: #e5e7eb;
+  background: #111827;
+  border: 1px solid #4c3b78;
+  text-align: center;
+  font-weight: 600;
+}
+
+.final-choice:hover:not(:disabled) {
+  background: #2e2155;
+  border-color: #a78bfa;
+  transform: none;
+}
+
+.final-choice.selected {
+  color: #fef3c7;
+  background: rgba(245, 158, 11, 0.25);
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.18);
+}
+
+.final-choice:disabled {
+  color: #8490a4;
+  background: #171b2a;
+  border-color: #353b4c;
+  opacity: 0.75;
+}
+
+.champion-result {
+  margin-top: 1rem;
+  padding: 0.85rem;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid #f59e0b;
+  border-radius: 0.65rem;
+}
+
+.champion-result p {
+  margin: 0;
+  color: #fbbf24;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.champion-result h3 {
+  margin: 0.3rem 0 0;
+  color: #fef3c7;
+}
+
 @media (max-width: 780px) {
   main {
     grid-template-columns: 1fr;
