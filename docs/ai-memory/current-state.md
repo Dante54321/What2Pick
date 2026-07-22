@@ -10,6 +10,7 @@ Last updated: 2026-07-22
 - The app uses local React state only, based on the inspected code.
 - The README is still the default React + TypeScript + Vite template text.
 - Vitest + React Testing Library are configured for automated UI behavior tests.
+- Playwright is configured for end-to-end browser tests against a running Vite dev server.
 
 ## Implemented Product Behavior
 
@@ -25,6 +26,7 @@ Last updated: 2026-07-22
 - Populate final choices from semifinal winners.
 - Select and display a champion.
 - Automated tests cover core setup and bracket flow behavior.
+- End-to-end Playwright coverage confirms the 4-game champion selection flow in Chromium.
 
 ## Planned Or Required But Not Confirmed As Implemented
 
@@ -37,6 +39,9 @@ Last updated: 2026-07-22
 - Added `npm run test` and `npm run test:watch`.
 - Added initial tests for adding four games, duplicate fixed position prevention, semifinal winner advancement, champion selection, and champion reset.
 - Verified `npm run test`, `npm run build`, and `npm run lint` pass.
+- Added Playwright E2E setup and scripts: `test:e2e`, `test:e2e:ui`, and `test:e2e:debug`.
+- Playwright tests require Vite to be running at `http://127.0.0.1:5173`.
+- Verified `npm run test:e2e` passes when Vite is running.
 
 ## Initial Memory Setup Notes
 

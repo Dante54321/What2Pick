@@ -9,6 +9,7 @@
 ## Proposed Technical Follow-Up
 
 - Add more focused tests for random distribution behavior and editing/reset edge cases.
+- Consider automating Playwright's Vite web server startup if Windows process shutdown behavior is resolved.
 - Consider extracting bracket assignment and winner state logic from `src/App.tsx` if complexity grows.
 
 ## Unknown

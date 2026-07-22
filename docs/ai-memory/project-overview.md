@@ -18,6 +18,9 @@ Confirmed from `package.json`:
 - `npm run lint`: run `oxlint`.
 - `npm run test`: run Vitest once.
 - `npm run test:watch`: run Vitest in watch mode.
+- `npm run test:e2e`: run Playwright end-to-end tests against a running Vite server.
+- `npm run test:e2e:ui`: open Playwright UI mode against a running Vite server.
+- `npm run test:e2e:debug`: run Playwright debug mode against a running Vite server.
 - `npm run preview`: run `vite preview`.
 
 ## Tests
@@ -25,6 +28,9 @@ Confirmed from `package.json`:
 - Vitest is configured through `vite.config.ts` with the `jsdom` environment.
 - React Testing Library setup lives in `src/setupTests.ts`.
 - Initial app behavior tests live in `src/App.test.tsx`.
+- Playwright is configured through `playwright.config.ts`.
+- End-to-end specs live under `tests/e2e/`.
+- Playwright expects Vite at `http://127.0.0.1:5173`.
 
 ## Product Requirements
 
