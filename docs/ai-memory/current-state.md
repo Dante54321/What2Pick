@@ -1,6 +1,6 @@
 # What2Pick Current State
 
-Last updated: 2026-07-19
+Last updated: 2026-07-22
 
 ## Confirmed Application State
 
@@ -9,6 +9,7 @@ Last updated: 2026-07-19
 - The UI is a 4-item bracket workflow for choosing a champion.
 - The app uses local React state only, based on the inspected code.
 - The README is still the default React + TypeScript + Vite template text.
+- Vitest + React Testing Library are configured for automated UI behavior tests.
 
 ## Implemented Product Behavior
 
@@ -23,12 +24,19 @@ Last updated: 2026-07-19
 - Select winners for Match A and Match B.
 - Populate final choices from semifinal winners.
 - Select and display a champion.
+- Automated tests cover core setup and bracket flow behavior.
 
 ## Planned Or Required But Not Confirmed As Implemented
 
 - Permanent persistence of the list across reloads: unknown / not confirmed.
-- Automated tests for bracket assignment and winner advancement: not confirmed.
 - Support for more than 4 elements: not confirmed.
+
+## Latest Session Notes
+
+- Added Vitest, jsdom, React Testing Library, user-event, and jest-dom.
+- Added `npm run test` and `npm run test:watch`.
+- Added initial tests for adding four games, duplicate fixed position prevention, semifinal winner advancement, champion selection, and champion reset.
+- Verified `npm run test`, `npm run build`, and `npm run lint` pass.
 
 ## Initial Memory Setup Notes
 

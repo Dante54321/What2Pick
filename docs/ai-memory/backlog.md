@@ -8,7 +8,7 @@
 
 ## Proposed Technical Follow-Up
 
-- Add focused tests for bracket assignment, random distribution behavior, semifinal winner advancement, final selection, and champion reset behavior.
+- Add more focused tests for random distribution behavior and editing/reset edge cases.
 - Consider extracting bracket assignment and winner state logic from `src/App.tsx` if complexity grows.
 
 ## Unknown

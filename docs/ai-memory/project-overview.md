@@ -16,12 +16,15 @@ Confirmed from `package.json`:
 - `npm run dev`: start Vite dev server.
 - `npm run build`: run `tsc -b` and `vite build`.
 - `npm run lint`: run `oxlint`.
+- `npm run test`: run Vitest once.
+- `npm run test:watch`: run Vitest in watch mode.
 - `npm run preview`: run `vite preview`.
 
 ## Tests
 
-- No test command is configured in `package.json`.
-- No automated test files were confirmed during the initial memory setup.
+- Vitest is configured through `vite.config.ts` with the `jsdom` environment.
+- React Testing Library setup lives in `src/setupTests.ts`.
+- Initial app behavior tests live in `src/App.test.tsx`.
 
 ## Product Requirements
 
@@ -52,6 +55,7 @@ Confirmed in `src/App.tsx`:
 - A champion can be selected once both semifinal winners exist.
 - Changing a semifinal winner clears the current champion.
 - Returning to setup clears semifinal winners and champion.
+- Automated tests cover key 4-item bracket setup and winner flow behavior.
 
 ## Unknown Or Not Confirmed
 
