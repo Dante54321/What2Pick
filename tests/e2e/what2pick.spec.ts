@@ -26,22 +26,22 @@ test('chooses a champion through the What2Pick bracket', async ({ page }) => {
   await test.step('Assign fixed bracket positions and start the bracket', async () => {
     const positionSelects = page.getByLabel('Position')
 
-    await positionSelects.nth(0).selectOption('A1')
-    await positionSelects.nth(1).selectOption('A2')
-    await positionSelects.nth(2).selectOption('B1')
-    await positionSelects.nth(3).selectOption('B2')
+    await positionSelects.nth(0).selectOption('slot-1')
+    await positionSelects.nth(1).selectOption('slot-2')
+    await positionSelects.nth(2).selectOption('slot-3')
+    await positionSelects.nth(3).selectOption('slot-4')
     await page.getByRole('button', { name: 'Start bracket' }).click()
 
     await expect(page.getByRole('status')).toContainText('Bracket started')
   })
 
   await test.step('Select the Match A and Match B winners', async () => {
-    await page.getByRole('button', { name: /A1:\s*Elden Ring/ }).click()
-    await page.getByRole('button', { name: /B2:\s*Balatro/ }).click()
+    await page.getByRole('button', { name: /Pick 1:\s*Elden Ring/ }).click()
+    await page.getByRole('button', { name: /Pick 2:\s*Balatro/ }).click()
   })
 
   await test.step('Select the champion', async () => {
-    await page.getByRole('button', { name: 'Elden Ring', exact: true }).click()
+    await page.getByRole('button', { name: /Pick 1:\s*Elden Ring/ }).last().click()
   })
 
   await test.step('Verify the champion appears correctly', async () => {

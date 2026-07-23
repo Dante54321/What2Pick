@@ -1,10 +1,11 @@
-//npm run dev
-//shift + alt + f correct indentation
-
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
+import { getReductionRoundPlan, getReductionRoundPlans } from './bracket'
 import './App.css'
 
-type FixedBracketPosition = 'A1' | 'A2' | 'B1' | 'B2'
+const MIN_BRACKET_ITEMS = 2
+const MAX_BRACKET_ITEMS = 128
+
+type FixedBracketPosition = `slot-${number}`
 type BracketPosition = 'random' | FixedBracketPosition
 
 type Game = {
@@ -14,32 +15,60 @@ type Game = {
   randomOrder: number
 }
 
-const FIXED_BRACKET_POSITIONS: FixedBracketPosition[] = [
-  'A1',
-  'A2',
-  'B1',
-  'B2',
-]
+type BracketEntry =
+  | {
+      type: 'game'
+      game: Game
+    }
+  | {
+      type: 'match'
+      matchId: string
+    }
 
-const BRACKET_POSITIONS: BracketPosition[] = [
-  'random',
-  ...FIXED_BRACKET_POSITIONS,
-]
+type BracketMatch = {
+  id: string
+  label: string
+  participants: BracketEntry[]
+}
+
+type BracketRound = {
+  id: string
+  name: string
+  matches: BracketMatch[]
+}
+
+function getRoundName(roundIndex: number, totalRounds: number) {
+  const roundsRemaining = totalRounds - roundIndex
+
+  if (roundsRemaining === 1) {
+    return 'Final'
+  }
+
+  if (roundsRemaining === 2) {
+    return 'Semifinals'
+  }
+
+  if (roundsRemaining === 3) {
+    return 'Quarterfinals'
+  }
+
+  return `Round ${roundIndex + 1}`
+}
 
 function getBracketAssignments(games: Game[]) {
-  const assignments: Partial<
-    Record<FixedBracketPosition, Game>
-  > = {}
+  const assignments: Array<Game | undefined> = Array.from({
+    length: games.length,
+  })
 
   games.forEach((game) => {
     if (game.position !== 'random') {
-      assignments[game.position] = game
+      const positionIndex = Number(game.position.replace('slot-', '')) - 1
+
+      if (positionIndex >= 0 && positionIndex < assignments.length) {
+        assignments[positionIndex] = game
+      }
     }
   })
-
-  const availablePositions = FIXED_BRACKET_POSITIONS.filter(
-    (position) => !assignments[position],
-  )
 
   const randomGames = games
     .filter((game) => game.position === 'random')
@@ -47,49 +76,162 @@ function getBracketAssignments(games: Game[]) {
       firstGame.randomOrder - secondGame.randomOrder
     )
 
-  randomGames.forEach((game, index) => {
-    const availablePosition = availablePositions[index]
+  let randomIndex = 0
 
-    if (availablePosition) {
-      assignments[availablePosition] = game
+  return assignments.map((assignedGame) => {
+    if (assignedGame) {
+      return assignedGame
     }
-  })
 
-  return assignments
+    const randomGame = randomGames[randomIndex]
+    randomIndex += 1
+    return randomGame
+  })
+}
+
+function buildBracketRounds(orderedGames: Game[]) {
+  const rounds: BracketRound[] = []
+  let entries: BracketEntry[] = orderedGames.map((game) => ({
+    type: 'game',
+    game,
+  }))
+
+  if (entries.length < MIN_BRACKET_ITEMS) {
+    return rounds
+  }
+
+  let reductionRoundPlan = getReductionRoundPlan(entries.length)
+
+  while (reductionRoundPlan) {
+    const roundNumber = rounds.length + 1
+    const matches: BracketMatch[] = []
+    const nextEntries: BracketEntry[] = []
+    let entryIndex = 0
+
+    for (let index = 0; index < reductionRoundPlan.pairMatchCount; index += 1) {
+      const matchId = `r${roundNumber}-m${matches.length + 1}`
+
+      matches.push({
+        id: matchId,
+        label: `Match ${matches.length + 1}`,
+        participants: entries.slice(entryIndex, entryIndex + 2),
+      })
+      nextEntries.push({ type: 'match', matchId })
+      entryIndex += 2
+    }
+
+    for (
+      let index = 0;
+      index < reductionRoundPlan.tripleMatchCount;
+      index += 1
+    ) {
+      const matchId = `r${roundNumber}-m${matches.length + 1}`
+
+      matches.push({
+        id: matchId,
+        label: `Match ${matches.length + 1}`,
+        participants: entries.slice(entryIndex, entryIndex + 3),
+      })
+      nextEntries.push({ type: 'match', matchId })
+      entryIndex += 3
+    }
+
+    rounds.push({
+      id: `r${roundNumber}`,
+      name: roundNumber === 1 ? 'Opening round' : `Reduction round ${roundNumber}`,
+      matches,
+    })
+    entries = nextEntries
+    reductionRoundPlan = getReductionRoundPlan(entries.length)
+  }
+
+  while (entries.length > 1) {
+    const roundNumber = rounds.length + 1
+    const matches: BracketMatch[] = []
+    const nextEntries: BracketEntry[] = []
+
+    for (let index = 0; index < entries.length; index += 2) {
+      const matchId = `r${roundNumber}-m${matches.length + 1}`
+
+      matches.push({
+        id: matchId,
+        label: `Match ${matches.length + 1}`,
+        participants: entries.slice(index, index + 2),
+      })
+      nextEntries.push({ type: 'match', matchId })
+    }
+
+    rounds.push({
+      id: `r${roundNumber}`,
+      name: '',
+      matches,
+    })
+    entries = nextEntries
+  }
+
+  return rounds.map((round, index) => ({
+    ...round,
+    name: round.name || getRoundName(index, rounds.length),
+  }))
 }
 
 function App() {
   const [gameName, setGameName] = useState('')
   const [games, setGames] = useState<Game[]>([])
   const [bracketStarted, setBracketStarted] = useState(false)
-  const [matchAWinnerId, setMatchAWinnerId] = useState<string | null>(null)
-  const [matchBWinnerId, setMatchBWinnerId] = useState<string | null>(null)
-  const [championId, setChampionId] = useState<string | null>(null)
+  const [winnerByMatchId, setWinnerByMatchId] = useState<
+    Record<string, string>
+  >({})
 
-  const bracketAssignments = getBracketAssignments(games)
-
-  const matchAWinner = games.find(
-    (game) => game.id === matchAWinnerId,
+  const bracketAssignments = useMemo(
+    () => getBracketAssignments(games),
+    [games],
   )
-
-  const matchBWinner = games.find(
-    (game) => game.id === matchBWinnerId,
+  const bracketRounds = useMemo(
+    () => buildBracketRounds(bracketAssignments),
+    [bracketAssignments],
   )
-
-  const champion = games.find(
-    (game) => game.id === championId,
-  )
-
+  const finalMatch = bracketRounds.at(-1)?.matches[0]
+  const champion = finalMatch
+    ? games.find((game) => game.id === winnerByMatchId[finalMatch.id])
+    : undefined
   const randomGamesCount = games.filter(
     (game) => game.position === 'random',
   ).length
+  const canStartBracket =
+    games.length >= MIN_BRACKET_ITEMS && games.length <= MAX_BRACKET_ITEMS
+  const positionOptions = Array.from(
+    { length: games.length },
+    (_, index) => `slot-${index + 1}` as FixedBracketPosition,
+  )
+  const reductionRoundPlans = getReductionRoundPlans(games.length)
+  const reductionPairMatchesCount = reductionRoundPlans.reduce(
+    (total, plan) => total + plan.pairMatchCount,
+    0,
+  )
+  const reductionTripleMatchesCount = reductionRoundPlans.reduce(
+    (total, plan) => total + plan.tripleMatchCount,
+    0,
+  )
+
+  function findGame(gameId: string | undefined) {
+    return games.find((game) => game.id === gameId)
+  }
+
+  function resolveEntry(entry: BracketEntry) {
+    if (entry.type === 'game') {
+      return entry.game
+    }
+
+    return findGame(winnerByMatchId[entry.matchId])
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     const trimmedName = gameName.trim()
 
-    if (!trimmedName || games.length >= 4 || bracketStarted) {
+    if (!trimmedName || games.length >= MAX_BRACKET_ITEMS || bracketStarted) {
       return
     }
 
@@ -129,50 +271,38 @@ function App() {
     )
   }
 
-  function selectSemifinalWinner(
-    match: 'A' | 'B',
+  function selectMatchWinner(
+    roundIndex: number,
+    matchId: string,
     game: Game | undefined,
   ) {
     if (!bracketStarted || !game) {
       return
     }
 
-    setChampionId(null)
+    setWinnerByMatchId((currentWinners) => {
+      const nextWinners = { ...currentWinners, [matchId]: game.id }
 
-    if (match === 'A') {
-      setMatchAWinnerId(game.id)
-    } else {
-      setMatchBWinnerId(game.id)
-    }
-  }
+      bracketRounds.slice(roundIndex + 1).forEach((round) => {
+        round.matches.forEach((match) => {
+          delete nextWinners[match.id]
+        })
+      })
 
-  function selectChampion(game: Game | undefined) {
-    if (
-      !bracketStarted ||
-      !game ||
-      !matchAWinner ||
-      !matchBWinner
-    ) {
-      return
-    }
-
-    setChampionId(game.id)
+      return nextWinners
+    })
   }
 
   function toggleBracket() {
     if (bracketStarted) {
       setBracketStarted(false)
-      setMatchAWinnerId(null)
-      setMatchBWinnerId(null)
-      setChampionId(null)
+      setWinnerByMatchId({})
       return
     }
 
-    if (games.length === 4) {
-      setMatchAWinnerId(null)
-      setMatchBWinnerId(null)
+    if (canStartBracket) {
+      setWinnerByMatchId({})
       setBracketStarted(true)
-      setChampionId(null)
     }
   }
 
@@ -185,7 +315,10 @@ function App() {
 
       <section>
         <h2>Add your games</h2>
-        <p>{games.length} of 4 games added</p>
+        <p>
+          {games.length} of {MAX_BRACKET_ITEMS} games added. Start with at
+          least {MIN_BRACKET_ITEMS}.
+        </p>
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="game-name">Game name</label>
@@ -196,10 +329,13 @@ function App() {
             placeholder="Example: Elden Ring"
             value={gameName}
             onChange={(event) => setGameName(event.target.value)}
-            disabled={bracketStarted || games.length >= 4}
+            disabled={bracketStarted || games.length >= MAX_BRACKET_ITEMS}
           />
 
-          <button type="submit" disabled={bracketStarted || games.length >= 4}>
+          <button
+            type="submit"
+            disabled={bracketStarted || games.length >= MAX_BRACKET_ITEMS}
+          >
             Add game
           </button>
         </form>
@@ -207,7 +343,7 @@ function App() {
         {games.length === 0 ? (
           <p>No games added yet.</p>
         ) : (
-          <ul>
+          <ul className="game-list">
             {games.map((game) => (
               <li key={game.id}>
                 <span>{game.name}</span>
@@ -227,14 +363,14 @@ function App() {
                   }
                   disabled={bracketStarted}
                 >
-                  {BRACKET_POSITIONS.map((position) => {
-                    const isOccupied =
-                      position !== 'random' &&
-                      games.some(
-                        (otherGame) =>
-                          otherGame.id !== game.id &&
-                          otherGame.position === position,
-                      )
+                  <option value="random">Random</option>
+
+                  {positionOptions.map((position, index) => {
+                    const isOccupied = games.some(
+                      (otherGame) =>
+                        otherGame.id !== game.id &&
+                        otherGame.position === position,
+                    )
 
                     return (
                       <option
@@ -242,7 +378,7 @@ function App() {
                         value={position}
                         disabled={isOccupied}
                       >
-                        {position === 'random' ? 'Random' : position}
+                        Slot {index + 1}
                       </option>
                     )
                   })}
@@ -270,7 +406,7 @@ function App() {
         <button
           type="button"
           onClick={toggleBracket}
-          disabled={!bracketStarted && games.length !== 4}
+          disabled={!bracketStarted && !canStartBracket}
         >
           {bracketStarted ? 'Edit bracket setup' : 'Start bracket'}
         </button>
@@ -285,120 +421,82 @@ function App() {
       <section>
         <h2>Bracket preview</h2>
 
-        <div>
-          <h3>Semifinals</h3>
+        {games.length < MIN_BRACKET_ITEMS ? (
+          <p>Add at least {MIN_BRACKET_ITEMS} games to preview the bracket.</p>
+        ) : (
+          <>
+            <p>
+              {reductionRoundPlans.length > 0 ? (
+                <>
+                  Reducing over {reductionRoundPlans.length} round
+                  {reductionRoundPlans.length === 1 ? '' : 's'} with{' '}
+                  {reductionPairMatchesCount} two-player match
+                  {reductionPairMatchesCount === 1 ? '' : 'es'} and{' '}
+                  {reductionTripleMatchesCount} three-way match
+                  {reductionTripleMatchesCount === 1 ? '' : 'es'}.
+                </>
+              ) : (
+                'This bracket uses only two-player matches.'
+              )}
+            </p>
 
-          <article>
-            <h4>Match A</h4>
+            <div className="bracket-rounds">
+              {bracketRounds.map((round, roundIndex) => (
+                <section className="bracket-round" key={round.id}>
+                  <h3>{round.name}</h3>
 
-            <button
-              type="button"
-              className={
-                matchAWinnerId === bracketAssignments.A1?.id
-                  ? 'bracket-choice selected'
-                  : 'bracket-choice'
-              }
-              onClick={() =>
-                selectSemifinalWinner('A', bracketAssignments.A1)
-              }
-              disabled={!bracketStarted || !bracketAssignments.A1}
-            >
-              <strong>A1:</strong>
-              <span>{bracketAssignments.A1?.name ?? 'Empty'}</span>
-            </button>
+                  {round.matches.map((match) => {
+                    const resolvedParticipants =
+                      match.participants.map(resolveEntry)
+                    const isReady = resolvedParticipants.every(Boolean)
 
-            <button
-              type="button"
-              className={
-                matchAWinnerId === bracketAssignments.A2?.id
-                  ? 'bracket-choice selected'
-                  : 'bracket-choice'
-              }
-              onClick={() =>
-                selectSemifinalWinner('A', bracketAssignments.A2)
-              }
-              disabled={!bracketStarted || !bracketAssignments.A2}
-            >
-              <strong>A2:</strong>
-              <span>{bracketAssignments.A2?.name ?? 'Empty'}</span>
-            </button>
-          </article>
+                    return (
+                      <article key={match.id}>
+                        <h4>{match.label}</h4>
 
-          <article>
-            <h4>Match B</h4>
+                        {match.participants.map((participant, index) => {
+                          const game = resolvedParticipants[index]
+                          const isSelected =
+                            game?.id === winnerByMatchId[match.id]
+                          const placeholder =
+                            participant.type === 'match'
+                              ? `Winner of ${participant.matchId}`
+                              : 'Empty'
 
-            <button
-              type="button"
-              className={
-                matchBWinnerId === bracketAssignments.B1?.id
-                  ? 'bracket-choice selected'
-                  : 'bracket-choice'
-              }
-              onClick={() =>
-                selectSemifinalWinner('B', bracketAssignments.B1)
-              }
-              disabled={!bracketStarted || !bracketAssignments.B1}
-            >
-              <strong>B1:</strong>
-              <span>{bracketAssignments.B1?.name ?? 'Empty'}</span>
-            </button>
-
-            <button
-              type="button"
-              className={
-                matchBWinnerId === bracketAssignments.B2?.id
-                  ? 'bracket-choice selected'
-                  : 'bracket-choice'
-              }
-              onClick={() =>
-                selectSemifinalWinner('B', bracketAssignments.B2)
-              }
-              disabled={!bracketStarted || !bracketAssignments.B2}
-            >
-              <strong>B2:</strong>
-              <span>{bracketAssignments.B2?.name ?? 'Empty'}</span>
-            </button>
-          </article>
-        </div>
-
-        <div>
-          <h3>Final</h3>
-
-          <button
-            type="button"
-            className={
-              championId === matchAWinner?.id
-                ? 'final-choice selected'
-                : 'final-choice'
-            }
-            onClick={() => selectChampion(matchAWinner)}
-            disabled={!matchAWinner || !matchBWinner}
-          >
-            {matchAWinner?.name ?? 'Winner of Match A'}
-          </button>
-
-          <p>vs.</p>
-
-          <button
-            type="button"
-            className={
-              championId === matchBWinner?.id
-                ? 'final-choice selected'
-                : 'final-choice'
-            }
-            onClick={() => selectChampion(matchBWinner)}
-            disabled={!matchAWinner || !matchBWinner}
-          >
-            {matchBWinner?.name ?? 'Winner of Match B'}
-          </button>
-
-          {champion && (
-            <div className="champion-result" role="status">
-              <p>Champion</p>
-              <h3>{champion.name}</h3>
+                          return (
+                            <button
+                              type="button"
+                              key={`${match.id}-${index}`}
+                              className={
+                                isSelected
+                                  ? 'bracket-choice selected'
+                                  : 'bracket-choice'
+                              }
+                              onClick={() =>
+                                selectMatchWinner(roundIndex, match.id, game)
+                              }
+                              disabled={!bracketStarted || !isReady || !game}
+                            >
+                              <strong>Pick {index + 1}:</strong>
+                              <span>{game?.name ?? placeholder}</span>
+                            </button>
+                          )
+                        })}
+                      </article>
+                    )
+                  })}
+                </section>
+              ))}
             </div>
-          )}
-        </div>
+
+            {champion && (
+              <div className="champion-result" role="status">
+                <p>Champion</p>
+                <h3>{champion.name}</h3>
+              </div>
+            )}
+          </>
+        )}
       </section>
     </main>
   )
