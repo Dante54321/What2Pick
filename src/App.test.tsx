@@ -10,21 +10,21 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-async function addGame(name: string) {
+async function addChoice(name: string) {
   const user = userEvent.setup()
 
-  await user.type(screen.getByLabelText(/game name/i), name)
-  await user.click(screen.getByRole('button', { name: /add game/i }))
+  await user.type(screen.getByLabelText(/choice name/i), name)
+  await user.click(screen.getByRole('button', { name: /add choice/i }))
 }
 
-async function addGames(names: string[]) {
+async function addChoices(names: string[]) {
   for (const name of names) {
-    await addGame(name)
+    await addChoice(name)
   }
 }
 
 describe('App', () => {
-  it('starts a bracket with the minimum of two games', async () => {
+  it('starts a bracket with the minimum of two choices', async () => {
     const user = userEvent.setup()
 
     render(<App />)
@@ -32,17 +32,17 @@ describe('App', () => {
     const startButton = screen.getByRole('button', { name: /start bracket/i })
 
     expect(startButton).toBeDisabled()
-    expect(screen.getByText(/0 of 128 games added/i)).toBeInTheDocument()
+    expect(screen.getByText(/0 of 128 choices added/i)).toBeInTheDocument()
 
-    await addGames(['Elden Ring', 'Hades'])
+    await addChoices(['Elden Ring', 'Hades'])
 
-    expect(screen.getByText(/2 of 128 games added/i)).toBeInTheDocument()
+    expect(screen.getByText(/2 of 128 choices added/i)).toBeInTheDocument()
     expect(startButton).toBeEnabled()
 
     await user.click(startButton)
 
     expect(screen.getByText(/bracket started/i)).toBeInTheDocument()
-    expect(screen.queryByLabelText(/game name/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/choice name/i)).not.toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: /edit bracket setup/i }),
     ).toBeInTheDocument()
@@ -54,7 +54,7 @@ describe('App', () => {
 
     render(<App />)
 
-    await addGames(['Elden Ring', 'Hades'])
+    await addChoices(['Elden Ring', 'Hades'])
 
     const positionSelects = screen.getAllByLabelText(/position/i)
 
@@ -68,11 +68,11 @@ describe('App', () => {
     ).toBeEnabled()
   })
 
-  it('persists games and fixed positions across reloads', async () => {
+  it('persists choices and fixed positions across reloads', async () => {
     const user = userEvent.setup()
     const { unmount } = render(<App />)
 
-    await addGames(['Elden Ring', 'Hades'])
+    await addChoices(['Elden Ring', 'Hades'])
 
     const positionSelects = screen.getAllByLabelText(/position/i)
 
@@ -82,7 +82,7 @@ describe('App', () => {
     unmount()
     render(<App />)
 
-    expect(screen.getByText(/2 of 128 games added/i)).toBeInTheDocument()
+    expect(screen.getByText(/2 of 128 choices added/i)).toBeInTheDocument()
     const restoredList = screen.getByRole('list')
 
     expect(within(restoredList).getByText('Elden Ring')).toBeInTheDocument()
@@ -94,12 +94,42 @@ describe('App', () => {
     expect(restoredPositionSelects[1]).toHaveValue('slot-2')
   })
 
-  it('advances winners through a four-game bracket and selects a champion', async () => {
+  it('restores legacy saved games as choices', () => {
+    localStorage.setItem(
+      'what2pick.bracket.v1',
+      JSON.stringify({
+        games: [
+          {
+            id: 'legacy-1',
+            name: 'Elden Ring',
+            position: 'slot-1',
+            randomOrder: 0.1,
+          },
+          {
+            id: 'legacy-2',
+            name: 'Hades',
+            position: 'slot-2',
+            randomOrder: 0.2,
+          },
+        ],
+        bracketStarted: false,
+        winnerByMatchId: {},
+      }),
+    )
+
+    render(<App />)
+
+    expect(screen.getByText(/2 of 128 choices added/i)).toBeInTheDocument()
+    expect(within(screen.getByRole('list')).getByText('Elden Ring')).toBeInTheDocument()
+    expect(screen.getAllByLabelText(/position/i)[0]).toHaveValue('slot-1')
+  })
+
+  it('advances winners through a four-choice bracket and selects a champion', async () => {
     const user = userEvent.setup()
 
     render(<App />)
 
-    await addGames(['Elden Ring', 'Hades', 'Celeste', 'Balatro'])
+    await addChoices(['Elden Ring', 'Hades', 'Celeste', 'Balatro'])
 
     const positionSelects = screen.getAllByLabelText(/position/i)
 
@@ -132,7 +162,7 @@ describe('App', () => {
     const user = userEvent.setup()
     const { unmount } = render(<App />)
 
-    await addGames(['Elden Ring', 'Hades', 'Celeste', 'Balatro'])
+    await addChoices(['Elden Ring', 'Hades', 'Celeste', 'Balatro'])
 
     const positionSelects = screen.getAllByLabelText(/position/i)
 
@@ -153,7 +183,7 @@ describe('App', () => {
     render(<App />)
 
     expect(screen.getByText(/bracket started/i)).toBeInTheDocument()
-    expect(screen.queryByLabelText(/game name/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/choice name/i)).not.toBeInTheDocument()
     expect(screen.getByText('Champion')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Elden Ring' })).toBeInTheDocument()
   })
@@ -164,22 +194,22 @@ describe('App', () => {
 
     render(<App />)
 
-    await addGames(['Elden Ring', 'Hades'])
+    await addChoices(['Elden Ring', 'Hades'])
     await user.click(screen.getByRole('button', { name: /start over/i }))
 
     expect(confirm).toHaveBeenCalledWith(
       'Start over and delete the saved bracket?',
     )
-    expect(screen.getByText(/2 of 128 games added/i)).toBeInTheDocument()
+    expect(screen.getByText(/2 of 128 choices added/i)).toBeInTheDocument()
     expect(within(screen.getByRole('list')).getByText('Elden Ring')).toBeInTheDocument()
   })
 
-  it('clears saved games and progress when start over is confirmed', async () => {
+  it('clears saved choices and progress when start over is confirmed', async () => {
     const user = userEvent.setup()
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const { unmount } = render(<App />)
 
-    await addGames(['Elden Ring', 'Hades', 'Celeste', 'Balatro'])
+    await addChoices(['Elden Ring', 'Hades', 'Celeste', 'Balatro'])
 
     const positionSelects = screen.getAllByLabelText(/position/i)
 
@@ -203,15 +233,15 @@ describe('App', () => {
     expect(confirm).toHaveBeenCalledWith(
       'Start over and delete the saved bracket?',
     )
-    expect(screen.getByText(/0 of 128 games added/i)).toBeInTheDocument()
+    expect(screen.getByText(/0 of 128 choices added/i)).toBeInTheDocument()
     expect(screen.queryByText('Champion')).not.toBeInTheDocument()
-    expect(screen.getByText(/no games added yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/no choices added yet/i)).toBeInTheDocument()
     expect(localStorage.length).toBe(0)
 
     unmount()
     render(<App />)
 
-    expect(screen.getByText(/0 of 128 games added/i)).toBeInTheDocument()
+    expect(screen.getByText(/0 of 128 choices added/i)).toBeInTheDocument()
     expect(screen.queryByText('Elden Ring')).not.toBeInTheDocument()
   })
 
@@ -220,7 +250,7 @@ describe('App', () => {
 
     render(<App />)
 
-    await addGames(['Elden Ring', 'Hades', 'Celeste', 'Balatro'])
+    await addChoices(['Elden Ring', 'Hades', 'Celeste', 'Balatro'])
 
     const positionSelects = screen.getAllByLabelText(/position/i)
 
@@ -244,12 +274,12 @@ describe('App', () => {
     expect(screen.queryByText('Champion')).not.toBeInTheDocument()
   })
 
-  it('uses pairs and a three-way opening match when nine games need four winners', async () => {
+  it('uses pairs and a three-way opening match when nine choices need four winners', async () => {
     const user = userEvent.setup()
 
     render(<App />)
 
-    await addGames([
+    await addChoices([
       'Elden Ring',
       'Hades',
       'Celeste',

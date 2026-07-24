@@ -46,7 +46,7 @@ Known requirements from the user:
 
 Confirmed in `src/App.tsx`:
 
-- Users can add 2 to 128 items, currently labeled as games in the UI and code.
+- Users can add 2 to 128 choices.
 - The current list is rendered while items exist during the setup phase.
 - Items can be removed before the bracket starts.
 - Each item has a `position` of `random` or a numeric bracket slot.
@@ -60,7 +60,8 @@ Confirmed in `src/App.tsx`:
 - Winner selections populate later-round choices, and changing a prior winner clears dependent later winners.
 - A champion is displayed after the final winner is selected.
 - Returning to setup clears selected winners and the champion.
-- Browser `localStorage` persists games, positions, started state, selected winners, and champion.
+- Browser `localStorage` persists choices, positions, started state, selected winners, and champion.
+- Legacy saved `games` storage is read as choices for compatibility with earlier local state.
 - Automated tests cover core setup, dynamic slot assignment, winner advancement, winner reset, three-way opening matches, and E2E champion selection.
 
 ## Unknown Or Not Confirmed

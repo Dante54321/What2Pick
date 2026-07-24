@@ -14,7 +14,7 @@ Last updated: 2026-07-24
 
 ## Implemented Product Behavior
 
-- Add named items up to a maximum of 128.
+- Add named choices up to a maximum of 128.
 - Display all added items in a list during the current app session.
 - Assign each item to `Random` or a numeric bracket slot.
 - Prevent duplicate fixed position assignments through disabled `<option>` entries.
@@ -29,7 +29,8 @@ Last updated: 2026-07-24
 - Select winners for each generated match.
 - Populate later-round choices from earlier winners.
 - Select and display a champion from the final match.
-- Persist the game list, bracket positions, started phase, selected winners, and champion across browser reloads on the same device/browser.
+- Persist the choice list, bracket positions, started phase, selected winners, and champion across browser reloads on the same device/browser.
+- Use generic `choices` language in the UI and app state; legacy saved `games` storage is still read for compatibility.
 - Clear the saved local bracket through a confirmed `Start over` action.
 - Automated tests cover core setup, dynamic slot assignment, two-player flow, winner reset, and three-way opening match behavior.
 - End-to-end Playwright spec exists for the 4-game champion selection flow in Chromium, updated for dynamic slot labels.
@@ -72,6 +73,9 @@ Last updated: 2026-07-24
 - Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 - Added a confirmed `Start over` action that clears the current bracket and removes saved local storage.
 - Added unit coverage for cancelling and confirming the start-over flow.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Renamed user-facing and app-state language from games to choices.
+- Added unit coverage for restoring legacy saved `games` data as choices.
 - Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 
 ## Initial Memory Setup Notes

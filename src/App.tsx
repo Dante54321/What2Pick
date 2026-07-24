@@ -16,7 +16,7 @@ const STORAGE_KEY = 'what2pick.bracket.v1'
 type FixedBracketPosition = `slot-${number}`
 type BracketPosition = 'random' | FixedBracketPosition
 
-type Game = {
+type Choice = {
   id: string
   name: string
   position: BracketPosition
@@ -24,15 +24,15 @@ type Game = {
 }
 
 type PersistedBracketState = {
-  games: Game[]
+  choices: Choice[]
   bracketStarted: boolean
   winnerByMatchId: Record<string, string>
 }
 
 type BracketEntry =
   | {
-      type: 'game'
-      game: Game
+      type: 'choice'
+      choice: Choice
     }
   | {
       type: 'match'
@@ -76,45 +76,45 @@ function getRoundName(roundIndex: number, totalRounds: number) {
   return `Round ${roundIndex + 1}`
 }
 
-function getBracketAssignments(games: Game[]) {
-  const assignments: Array<Game | undefined> = Array.from({
-    length: games.length,
+function getBracketAssignments(choices: Choice[]) {
+  const assignments: Array<Choice | undefined> = Array.from({
+    length: choices.length,
   })
 
-  games.forEach((game) => {
-    if (game.position !== 'random') {
-      const positionIndex = Number(game.position.replace('slot-', '')) - 1
+  choices.forEach((choice) => {
+    if (choice.position !== 'random') {
+      const positionIndex = Number(choice.position.replace('slot-', '')) - 1
 
       if (positionIndex >= 0 && positionIndex < assignments.length) {
-        assignments[positionIndex] = game
+        assignments[positionIndex] = choice
       }
     }
   })
 
-  const randomGames = games
-    .filter((game) => game.position === 'random')
-    .sort((firstGame, secondGame) =>
-      firstGame.randomOrder - secondGame.randomOrder
+  const randomChoices = choices
+    .filter((choice) => choice.position === 'random')
+    .sort((firstChoice, secondChoice) =>
+      firstChoice.randomOrder - secondChoice.randomOrder
     )
 
   let randomIndex = 0
 
-  return assignments.map((assignedGame) => {
-    if (assignedGame) {
-      return assignedGame
+  return assignments.map((assignedChoice) => {
+    if (assignedChoice) {
+      return assignedChoice
     }
 
-    const randomGame = randomGames[randomIndex]
+    const randomChoice = randomChoices[randomIndex]
     randomIndex += 1
-    return randomGame
+    return randomChoice
   })
 }
 
-function buildBracketRounds(orderedGames: Game[]) {
+function buildBracketRounds(orderedChoices: Choice[]) {
   const rounds: BracketRound[] = []
-  let entries: BracketEntry[] = orderedGames.map((game) => ({
-    type: 'game',
-    game,
+  let entries: BracketEntry[] = orderedChoices.map((choice) => ({
+    type: 'choice',
+    choice,
   }))
 
   if (entries.length < MIN_BRACKET_ITEMS) {
@@ -207,7 +207,7 @@ function isBracketPosition(value: unknown): value is BracketPosition {
   )
 }
 
-function isGame(value: unknown): value is Game {
+function isChoice(value: unknown): value is Choice {
   return (
     isRecord(value) &&
     typeof value.id === 'string' &&
@@ -227,7 +227,7 @@ function isWinnerMap(value: unknown): value is Record<string, string> {
 function readPersistedBracketState(): PersistedBracketState {
   if (typeof window === 'undefined') {
     return {
-      games: [],
+      choices: [],
       bracketStarted: false,
       winnerByMatchId: {},
     }
@@ -238,7 +238,7 @@ function readPersistedBracketState(): PersistedBracketState {
 
     if (!storedState) {
       return {
-        games: [],
+        choices: [],
         bracketStarted: false,
         winnerByMatchId: {},
       }
@@ -246,29 +246,41 @@ function readPersistedBracketState(): PersistedBracketState {
 
     const parsedState: unknown = JSON.parse(storedState)
 
-    if (!isRecord(parsedState) || !Array.isArray(parsedState.games)) {
+    if (!isRecord(parsedState)) {
       return {
-        games: [],
+        choices: [],
         bracketStarted: false,
         winnerByMatchId: {},
       }
     }
 
-    const games = parsedState.games.filter(isGame).slice(0, MAX_BRACKET_ITEMS)
+    const storedChoices = Array.isArray(parsedState.choices)
+      ? parsedState.choices
+      : parsedState.games
+
+    if (!Array.isArray(storedChoices)) {
+      return {
+        choices: [],
+        bracketStarted: false,
+        winnerByMatchId: {},
+      }
+    }
+
+    const choices = storedChoices.filter(isChoice).slice(0, MAX_BRACKET_ITEMS)
     const winnerByMatchId = isWinnerMap(parsedState.winnerByMatchId)
       ? parsedState.winnerByMatchId
       : {}
 
     return {
-      games,
+      choices,
       bracketStarted:
         parsedState.bracketStarted === true &&
-        games.length >= MIN_BRACKET_ITEMS,
+        choices.length >= MIN_BRACKET_ITEMS,
       winnerByMatchId,
     }
   } catch {
     return {
-      games: [],
+      choices: [],
       bracketStarted: false,
       winnerByMatchId: {},
     }
@@ -277,8 +289,8 @@ function readPersistedBracketState(): PersistedBracketState {
 
 function App() {
   const persistedState = useMemo(readPersistedBracketState, [])
-  const [gameName, setGameName] = useState('')
-  const [games, setGames] = useState<Game[]>(persistedState.games)
+  const [choiceName, setChoiceName] = useState('')
+  const [choices, setChoices] = useState<Choice[]>(persistedState.choices)
   const [bracketStarted, setBracketStarted] = useState(
     persistedState.bracketStarted,
   )
@@ -289,8 +301,8 @@ function App() {
   const bracketViewportRef = useRef<HTMLDivElement>(null)
 
   const bracketAssignments = useMemo(
-    () => getBracketAssignments(games),
-    [games],
+    () => getBracketAssignments(choices),
+    [choices],
   )
   const bracketRounds = useMemo(
     () => buildBracketRounds(bracketAssignments),
@@ -373,18 +385,18 @@ function App() {
     leftRoundColumns.length + rightRoundColumns.length +
     (finalRoundColumn ? 1 : 0)
   const champion = finalMatch
-    ? games.find((game) => game.id === winnerByMatchId[finalMatch.id])
+    ? choices.find((choice) => choice.id === winnerByMatchId[finalMatch.id])
     : undefined
-  const randomGamesCount = games.filter(
-    (game) => game.position === 'random',
+  const randomChoicesCount = choices.filter(
+    (choice) => choice.position === 'random',
   ).length
   const canStartBracket =
-    games.length >= MIN_BRACKET_ITEMS && games.length <= MAX_BRACKET_ITEMS
+    choices.length >= MIN_BRACKET_ITEMS && choices.length <= MAX_BRACKET_ITEMS
   const positionOptions = Array.from(
-    { length: games.length },
+    { length: choices.length },
     (_, index) => `slot-${index + 1}` as FixedBracketPosition,
   )
-  const reductionRoundPlans = getReductionRoundPlans(games.length)
+  const reductionRoundPlans = getReductionRoundPlans(choices.length)
   const reductionPairMatchesCount = reductionRoundPlans.reduce(
     (total, plan) => total + plan.pairMatchCount,
     0,
@@ -394,14 +406,14 @@ function App() {
     0,
   )
 
-  function findGame(gameId: string | undefined) {
-    return games.find((game) => game.id === gameId)
+  function findChoice(choiceId: string | undefined) {
+    return choices.find((choice) => choice.id === choiceId)
   }
 
   useEffect(() => {
     try {
       if (
-        games.length === 0 &&
+        choices.length === 0 &&
         !bracketStarted &&
         Object.keys(winnerByMatchId).length === 0
       ) {
@@ -412,7 +424,7 @@ function App() {
       window.localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
-          games,
+          choices,
           bracketStarted,
           winnerByMatchId,
         } satisfies PersistedBracketState),
@@ -420,7 +432,7 @@ function App() {
     } catch {
       // Continue without persistence when storage is unavailable.
     }
-  }, [bracketStarted, games, winnerByMatchId])
+  }, [bracketStarted, choices, winnerByMatchId])
 
   useEffect(() => {
     const scrollbar = bracketScrollbarRef.current
@@ -437,57 +449,57 @@ function App() {
       viewport.scrollLeft = centeredScrollLeft
       scrollbar.scrollLeft = centeredScrollLeft
     })
-  }, [bracketColumnCount, games.length])
+  }, [bracketColumnCount, choices.length])
 
   function resolveEntry(entry: BracketEntry) {
-    if (entry.type === 'game') {
-      return entry.game
+    if (entry.type === 'choice') {
+      return entry.choice
     }
 
-    return findGame(winnerByMatchId[entry.matchId])
+    return findChoice(winnerByMatchId[entry.matchId])
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    const trimmedName = gameName.trim()
+    const trimmedName = choiceName.trim()
 
-    if (!trimmedName || games.length >= MAX_BRACKET_ITEMS || bracketStarted) {
+    if (!trimmedName || choices.length >= MAX_BRACKET_ITEMS || bracketStarted) {
       return
     }
 
-    const newGame: Game = {
+    const newChoice: Choice = {
       id: crypto.randomUUID(),
       name: trimmedName,
       position: 'random',
       randomOrder: Math.random(),
     }
 
-    setGames([...games, newGame])
-    setGameName('')
+    setChoices([...choices, newChoice])
+    setChoiceName('')
   }
 
-  function removeGame(gameId: string) {
-    setGames(games.filter((game) => game.id !== gameId))
+  function removeChoice(choiceId: string) {
+    setChoices(choices.filter((choice) => choice.id !== choiceId))
   }
 
-  function updateGamePosition(
-    gameId: string,
+  function updateChoicePosition(
+    choiceId: string,
     position: BracketPosition,
   ) {
-    setGames(
-      games.map((game) =>
-        game.id === gameId ? { ...game, position } : game,
+    setChoices(
+      choices.map((choice) =>
+        choice.id === choiceId ? { ...choice, position } : choice,
       ),
     )
   }
 
-  function shuffleRandomGames() {
-    setGames(
-      games.map((game) =>
-        game.position === 'random'
-          ? { ...game, randomOrder: Math.random() }
-          : game,
+  function shuffleRandomChoices() {
+    setChoices(
+      choices.map((choice) =>
+        choice.position === 'random'
+          ? { ...choice, randomOrder: Math.random() }
+          : choice,
       ),
     )
   }
@@ -495,14 +507,14 @@ function App() {
   function selectMatchWinner(
     roundIndex: number,
     matchId: string,
-    game: Game | undefined,
+    choice: Choice | undefined,
   ) {
-    if (!bracketStarted || !game) {
+    if (!bracketStarted || !choice) {
       return
     }
 
     setWinnerByMatchId((currentWinners) => {
-      const nextWinners = { ...currentWinners, [matchId]: game.id }
+      const nextWinners = { ...currentWinners, [matchId]: choice.id }
 
       bracketRounds.slice(roundIndex + 1).forEach((round) => {
         round.matches.forEach((match) => {
@@ -542,8 +554,8 @@ function App() {
       // Continue resetting app state when storage is unavailable.
     }
 
-    setGameName('')
-    setGames([])
+    setChoiceName('')
+    setChoices([])
     setBracketStarted(false)
     setWinnerByMatchId({})
   }
@@ -596,8 +608,8 @@ function App() {
                 <h4>{match.label}</h4>
 
                 {match.participants.map((participant, index) => {
-                  const game = resolvedParticipants[index]
-                  const isSelected = game?.id === winnerByMatchId[match.id]
+                  const choice = resolvedParticipants[index]
+                  const isSelected = choice?.id === winnerByMatchId[match.id]
                   const placeholder =
                     participant.type === 'match'
                       ? `Winner of ${participant.matchId}`
@@ -613,12 +625,12 @@ function App() {
                           : 'bracket-choice'
                       }
                       onClick={() =>
-                        selectMatchWinner(round.roundIndex, match.id, game)
+                        selectMatchWinner(round.roundIndex, match.id, choice)
                       }
-                      disabled={!bracketStarted || !isReady || !game}
+                      disabled={!bracketStarted || !isReady || !choice}
                     >
                       <strong>Pick {index + 1}:</strong>
-                      <span>{game?.name ?? placeholder}</span>
+                      <span>{choice?.name ?? placeholder}</span>
                     </button>
                   )
                 })}
@@ -660,50 +672,50 @@ function App() {
 
       {!bracketStarted && (
         <section className="setup-panel">
-          <h2>Add your games</h2>
+          <h2>Add your choices</h2>
           <p>
-            {games.length} of {MAX_BRACKET_ITEMS} games added. Start with at
+            {choices.length} of {MAX_BRACKET_ITEMS} choices added. Start with at
             least {MIN_BRACKET_ITEMS}.
           </p>
 
           <form onSubmit={handleSubmit}>
-            <label htmlFor="game-name">Game name</label>
+            <label htmlFor="choice-name">Choice name</label>
 
             <input
-              id="game-name"
+              id="choice-name"
               type="text"
-              placeholder="Example: Elden Ring"
-              value={gameName}
-              onChange={(event) => setGameName(event.target.value)}
-              disabled={bracketStarted || games.length >= MAX_BRACKET_ITEMS}
+              placeholder="Example: Pizza"
+              value={choiceName}
+              onChange={(event) => setChoiceName(event.target.value)}
+              disabled={bracketStarted || choices.length >= MAX_BRACKET_ITEMS}
             />
 
             <button
               type="submit"
-              disabled={bracketStarted || games.length >= MAX_BRACKET_ITEMS}
+              disabled={bracketStarted || choices.length >= MAX_BRACKET_ITEMS}
             >
-              Add game
+              Add choice
             </button>
           </form>
 
-          {games.length === 0 ? (
-            <p>No games added yet.</p>
+          {choices.length === 0 ? (
+            <p>No choices added yet.</p>
           ) : (
-            <ul className="game-list">
-              {games.map((game) => (
-                <li key={game.id}>
-                  <span>{game.name}</span>
+            <ul className="choice-list">
+              {choices.map((choice) => (
+                <li key={choice.id}>
+                  <span>{choice.name}</span>
 
-                  <label htmlFor={`position-${game.id}`}>
+                  <label htmlFor={`position-${choice.id}`}>
                     Position
                   </label>
 
                   <select
-                    id={`position-${game.id}`}
-                    value={game.position}
+                    id={`position-${choice.id}`}
+                    value={choice.position}
                     onChange={(event) =>
-                      updateGamePosition(
-                        game.id,
+                      updateChoicePosition(
+                        choice.id,
                         event.target.value as BracketPosition,
                       )
                     }
@@ -712,10 +724,10 @@ function App() {
                     <option value="random">Random</option>
 
                     {positionOptions.map((position, index) => {
-                      const isOccupied = games.some(
-                        (otherGame) =>
-                          otherGame.id !== game.id &&
-                          otherGame.position === position,
+                      const isOccupied = choices.some(
+                        (otherChoice) =>
+                          otherChoice.id !== choice.id &&
+                          otherChoice.position === position,
                       )
 
                       return (
@@ -732,7 +744,7 @@ function App() {
 
                   <button
                     type="button"
-                    onClick={() => removeGame(game.id)}
+                    onClick={() => removeChoice(choice.id)}
                     disabled={bracketStarted}
                   >
                     Remove
@@ -745,10 +757,10 @@ function App() {
           <div className="setup-actions">
             <button
               type="button"
-              onClick={shuffleRandomGames}
-              disabled={bracketStarted || randomGamesCount < 2}
+              onClick={shuffleRandomChoices}
+              disabled={bracketStarted || randomChoicesCount < 2}
             >
-              Shuffle random games
+              Shuffle random choices
             </button>
             <button
               type="button"
@@ -757,7 +769,7 @@ function App() {
             >
               {bracketStarted ? 'Edit bracket setup' : 'Start bracket'}
             </button>
-            {games.length > 0 && (
+            {choices.length > 0 && (
               <button
                 type="button"
                 className="danger-button"
@@ -798,8 +810,8 @@ function App() {
           )}
         </div>
 
-        {games.length < MIN_BRACKET_ITEMS ? (
-          <p>Add at least {MIN_BRACKET_ITEMS} games to preview the bracket.</p>
+        {choices.length < MIN_BRACKET_ITEMS ? (
+          <p>Add at least {MIN_BRACKET_ITEMS} choices to preview the bracket.</p>
         ) : (
           <>
             <p>

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-const games = ['Elden Ring', 'Hades', 'Celeste', 'Balatro']
+const choices = ['Elden Ring', 'Hades', 'Celeste', 'Balatro']
 
 test('chooses a champion through the What2Pick bracket', async ({ page }) => {
   await test.step('Open What2Pick', async () => {
@@ -8,18 +8,18 @@ test('chooses a champion through the What2Pick bracket', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'What2Pick' })).toBeVisible()
   })
 
-  await test.step('Add four games', async () => {
-    for (const game of games) {
-      await page.getByLabel('Game name').fill(game)
-      await page.getByRole('button', { name: 'Add game' }).click()
+  await test.step('Add four choices', async () => {
+    for (const choice of choices) {
+      await page.getByLabel('Choice name').fill(choice)
+      await page.getByRole('button', { name: 'Add choice' }).click()
     }
   })
 
-  await test.step('Verify the games appear in the list', async () => {
+  await test.step('Verify the choices appear in the list', async () => {
     const list = page.getByRole('list')
 
-    for (const game of games) {
-      await expect(list.getByText(game)).toBeVisible()
+    for (const choice of choices) {
+      await expect(list.getByText(choice)).toBeVisible()
     }
   })
 

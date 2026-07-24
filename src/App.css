@@ -240,7 +240,7 @@ button:disabled {
   background: #b91c1c;
 }
 
-.game-list {
+.choice-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr));
   gap: 0.65rem;
@@ -249,7 +249,7 @@ button:disabled {
   list-style: none;
 }
 
-.game-list li {
+.choice-list li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.6rem;
@@ -260,7 +260,7 @@ button:disabled {
   border-radius: 0.7rem;
 }
 
-.game-list li span {
+.choice-list li span {
   overflow: hidden;
   color: #e5e7eb;
   font-weight: 650;
@@ -268,19 +268,19 @@ button:disabled {
   white-space: nowrap;
 }
 
-.game-list li label {
+.choice-list li label {
   justify-self: end;
   color: #94a3b8;
   font-size: 0.75rem;
 }
 
-.game-list li select {
+.choice-list li select {
   grid-column: 1;
   min-width: 5.5rem;
   padding: 0.55rem;
 }
 
-.game-list li button {
+.choice-list li button {
   grid-column: 2;
   grid-row: 2;
   align-self: stretch;
@@ -290,7 +290,7 @@ button:disabled {
   border-color: #7f1d1d;
 }
 
-.game-list li button:hover:not(:disabled) {
+.choice-list li button:hover:not(:disabled) {
   background: #7f1d1d;
 }
 
@@ -539,16 +539,16 @@ button:disabled {
     grid-column: 1;
   }
 
-  .game-list li {
+  .choice-list li {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .game-list li label,
-  .game-list li select {
+  .choice-list li label,
+  .choice-list li select {
     grid-column: 1;
   }
 
-  .game-list li button {
+  .choice-list li button {
     grid-column: 2;
     grid-row: 1 / 4;
   }
