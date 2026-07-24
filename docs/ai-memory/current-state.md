@@ -30,6 +30,7 @@ Last updated: 2026-07-24
 - Populate later-round choices from earlier winners.
 - Select and display a champion from the final match.
 - Persist the game list, bracket positions, started phase, selected winners, and champion across browser reloads on the same device/browser.
+- Clear the saved local bracket through a confirmed `Start over` action.
 - Automated tests cover core setup, dynamic slot assignment, two-player flow, winner reset, and three-way opening match behavior.
 - End-to-end Playwright spec exists for the 4-game champion selection flow in Chromium, updated for dynamic slot labels.
 
@@ -68,6 +69,9 @@ Last updated: 2026-07-24
 - Verified the centered bracket layout with 16-game desktop and 8-game mobile Playwright checks; the page still avoids global horizontal overflow.
 - Added `localStorage` persistence for games, positions, bracket started state, selected winners, and champion.
 - Added unit coverage for restoring setup state and a completed bracket after reload.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Added a confirmed `Start over` action that clears the current bracket and removes saved local storage.
+- Added unit coverage for cancelling and confirming the start-over flow.
 - Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 
 ## Initial Memory Setup Notes

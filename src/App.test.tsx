@@ -1,12 +1,13 @@
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { getReductionRoundPlan, getReductionRoundPlans } from './bracket'
 
 afterEach(() => {
   cleanup()
   localStorage.clear()
+  vi.restoreAllMocks()
 })
 
 async function addGame(name: string) {
@@ -155,6 +156,63 @@ describe('App', () => {
     expect(screen.queryByLabelText(/game name/i)).not.toBeInTheDocument()
     expect(screen.getByText('Champion')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Elden Ring' })).toBeInTheDocument()
+  })
+
+  it('keeps the saved bracket when start over is cancelled', async () => {
+    const user = userEvent.setup()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(<App />)
+
+    await addGames(['Elden Ring', 'Hades'])
+    await user.click(screen.getByRole('button', { name: /start over/i }))
+
+    expect(confirm).toHaveBeenCalledWith(
+      'Start over and delete the saved bracket?',
+    )
+    expect(screen.getByText(/2 of 128 games added/i)).toBeInTheDocument()
+    expect(within(screen.getByRole('list')).getByText('Elden Ring')).toBeInTheDocument()
+  })
+
+  it('clears saved games and progress when start over is confirmed', async () => {
+    const user = userEvent.setup()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const { unmount } = render(<App />)
+
+    await addGames(['Elden Ring', 'Hades', 'Celeste', 'Balatro'])
+
+    const positionSelects = screen.getAllByLabelText(/position/i)
+
+    await user.selectOptions(positionSelects[0], 'slot-1')
+    await user.selectOptions(positionSelects[1], 'slot-2')
+    await user.selectOptions(positionSelects[2], 'slot-3')
+    await user.selectOptions(positionSelects[3], 'slot-4')
+    await user.click(screen.getByRole('button', { name: /start bracket/i }))
+    await user.click(
+      screen.getByRole('button', { name: /pick 1:\s*elden ring/i }),
+    )
+    await user.click(
+      screen.getByRole('button', { name: /pick 2:\s*balatro/i }),
+    )
+    await user.click(screen.getAllByRole('button', { name: /elden ring/i }).at(-1)!)
+
+    expect(screen.getByText('Champion')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /start over/i }))
+
+    expect(confirm).toHaveBeenCalledWith(
+      'Start over and delete the saved bracket?',
+    )
+    expect(screen.getByText(/0 of 128 games added/i)).toBeInTheDocument()
+    expect(screen.queryByText('Champion')).not.toBeInTheDocument()
+    expect(screen.getByText(/no games added yet/i)).toBeInTheDocument()
+    expect(localStorage.length).toBe(0)
+
+    unmount()
+    render(<App />)
+
+    expect(screen.getByText(/0 of 128 games added/i)).toBeInTheDocument()
+    expect(screen.queryByText('Elden Ring')).not.toBeInTheDocument()
   })
 
   it('clears later winners when an earlier winner changes', async () => {

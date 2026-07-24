@@ -134,7 +134,8 @@ main.playing-phase .bracket-panel {
   color: #9da9bc;
 }
 
-.bracket-panel-header button {
+.bracket-panel-header button,
+.bracket-panel-actions {
   flex: 0 0 auto;
 }
 
@@ -216,6 +217,29 @@ button:disabled {
   opacity: 0.7;
 }
 
+.setup-actions,
+.bracket-panel-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.setup-actions button,
+.bracket-panel-actions button {
+  flex: 1 1 11rem;
+}
+
+.danger-button {
+  color: #fecaca;
+  background: #991b1b;
+  border-color: #ef4444;
+}
+
+.danger-button:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
 .game-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr));
@@ -268,11 +292,6 @@ button:disabled {
 
 .game-list li button:hover:not(:disabled) {
   background: #7f1d1d;
-}
-
-main>section:first-of-type>button {
-  width: 100%;
-  margin-top: 1rem;
 }
 
 /* Bracket */
@@ -501,7 +520,8 @@ main>section:first-of-type>button {
     flex-direction: column;
   }
 
-  .bracket-panel-header button {
+  .bracket-panel-header button,
+  .bracket-panel-actions {
     width: 100%;
   }
 }

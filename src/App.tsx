@@ -400,6 +400,15 @@ function App() {
 
   useEffect(() => {
     try {
+      if (
+        games.length === 0 &&
+        !bracketStarted &&
+        Object.keys(winnerByMatchId).length === 0
+      ) {
+        window.localStorage.removeItem(STORAGE_KEY)
+        return
+      }
+
       window.localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
@@ -516,6 +525,27 @@ function App() {
       setWinnerByMatchId({})
       setBracketStarted(true)
     }
+  }
+
+  function startOver() {
+    const shouldReset = window.confirm(
+      'Start over and delete the saved bracket?',
+    )
+
+    if (!shouldReset) {
+      return
+    }
+
+    try {
+      window.localStorage.removeItem(STORAGE_KEY)
+    } catch {
+      // Continue resetting app state when storage is unavailable.
+    }
+
+    setGameName('')
+    setGames([])
+    setBracketStarted(false)
+    setWinnerByMatchId({})
   }
 
   function syncBracketScroll(source: 'scrollbar' | 'viewport') {
@@ -712,20 +742,31 @@ function App() {
             </ul>
           )}
 
-          <button
-            type="button"
-            onClick={shuffleRandomGames}
-            disabled={bracketStarted || randomGamesCount < 2}
-          >
-            Shuffle random games
-          </button>
-          <button
-            type="button"
-            onClick={toggleBracket}
-            disabled={!bracketStarted && !canStartBracket}
-          >
-            {bracketStarted ? 'Edit bracket setup' : 'Start bracket'}
-          </button>
+          <div className="setup-actions">
+            <button
+              type="button"
+              onClick={shuffleRandomGames}
+              disabled={bracketStarted || randomGamesCount < 2}
+            >
+              Shuffle random games
+            </button>
+            <button
+              type="button"
+              onClick={toggleBracket}
+              disabled={!bracketStarted && !canStartBracket}
+            >
+              {bracketStarted ? 'Edit bracket setup' : 'Start bracket'}
+            </button>
+            {games.length > 0 && (
+              <button
+                type="button"
+                className="danger-button"
+                onClick={startOver}
+              >
+                Start over
+              </button>
+            )}
+          </div>
         </section>
       )}
 
@@ -742,9 +783,18 @@ function App() {
           </div>
 
           {bracketStarted && (
-            <button type="button" onClick={toggleBracket}>
-              Edit bracket setup
-            </button>
+            <div className="bracket-panel-actions">
+              <button type="button" onClick={toggleBracket}>
+                Edit bracket setup
+              </button>
+              <button
+                type="button"
+                className="danger-button"
+                onClick={startOver}
+              >
+                Start over
+              </button>
+            </div>
           )}
         </div>
 

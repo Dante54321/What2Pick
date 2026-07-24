@@ -13,7 +13,6 @@
 - Consider automating Playwright's Vite web server startup if Windows process shutdown behavior is resolved.
 - Consider extracting bracket assignment and winner state logic from `src/App.tsx` if complexity grows.
 - Consider adding focused tests for the 128-item cap and editing/reset edge cases around larger brackets.
-- Add explicit reset/start-over controls for persisted local data if users need a faster way to clear saved state.
 
 ## Unknown
 
