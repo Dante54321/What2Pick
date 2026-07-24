@@ -6,6 +6,7 @@ import { getReductionRoundPlan, getReductionRoundPlans } from './bracket'
 
 afterEach(() => {
   cleanup()
+  localStorage.clear()
 })
 
 async function addGame(name: string) {
@@ -66,6 +67,32 @@ describe('App', () => {
     ).toBeEnabled()
   })
 
+  it('persists games and fixed positions across reloads', async () => {
+    const user = userEvent.setup()
+    const { unmount } = render(<App />)
+
+    await addGames(['Elden Ring', 'Hades'])
+
+    const positionSelects = screen.getAllByLabelText(/position/i)
+
+    await user.selectOptions(positionSelects[0], 'slot-1')
+    await user.selectOptions(positionSelects[1], 'slot-2')
+
+    unmount()
+    render(<App />)
+
+    expect(screen.getByText(/2 of 128 games added/i)).toBeInTheDocument()
+    const restoredList = screen.getByRole('list')
+
+    expect(within(restoredList).getByText('Elden Ring')).toBeInTheDocument()
+    expect(within(restoredList).getByText('Hades')).toBeInTheDocument()
+
+    const restoredPositionSelects = screen.getAllByLabelText(/position/i)
+
+    expect(restoredPositionSelects[0]).toHaveValue('slot-1')
+    expect(restoredPositionSelects[1]).toHaveValue('slot-2')
+  })
+
   it('advances winners through a four-game bracket and selects a champion', async () => {
     const user = userEvent.setup()
 
@@ -96,6 +123,36 @@ describe('App', () => {
 
     await user.click(finalEldenRing!)
 
+    expect(screen.getByText('Champion')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Elden Ring' })).toBeInTheDocument()
+  })
+
+  it('persists a started bracket and selected champion across reloads', async () => {
+    const user = userEvent.setup()
+    const { unmount } = render(<App />)
+
+    await addGames(['Elden Ring', 'Hades', 'Celeste', 'Balatro'])
+
+    const positionSelects = screen.getAllByLabelText(/position/i)
+
+    await user.selectOptions(positionSelects[0], 'slot-1')
+    await user.selectOptions(positionSelects[1], 'slot-2')
+    await user.selectOptions(positionSelects[2], 'slot-3')
+    await user.selectOptions(positionSelects[3], 'slot-4')
+    await user.click(screen.getByRole('button', { name: /start bracket/i }))
+    await user.click(
+      screen.getByRole('button', { name: /pick 1:\s*elden ring/i }),
+    )
+    await user.click(
+      screen.getByRole('button', { name: /pick 2:\s*balatro/i }),
+    )
+    await user.click(screen.getAllByRole('button', { name: /elden ring/i }).at(-1)!)
+
+    unmount()
+    render(<App />)
+
+    expect(screen.getByText(/bracket started/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/game name/i)).not.toBeInTheDocument()
     expect(screen.getByText('Champion')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Elden Ring' })).toBeInTheDocument()
   })

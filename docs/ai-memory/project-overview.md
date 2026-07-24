@@ -37,8 +37,8 @@ Confirmed from `package.json`:
 Known requirements from the user:
 
 - The user creates a list of elements to compare through an elimination bracket.
-- The user can permanently see all elements in the list.
-- The user can manually assign elements to positions such as A1, A2, B1, and B2, or distribute them randomly.
+- The user can keep the list, positions, and bracket progress across browser reloads on the same device/browser.
+- The user can manually assign elements to numeric bracket slots, or distribute them randomly.
 - A bracket preview should update while the bracket is configured.
 - The system should correctly handle winners advancing between rounds, semifinals, and final.
 
@@ -46,26 +46,26 @@ Known requirements from the user:
 
 Confirmed in `src/App.tsx`:
 
-- Users can add up to 4 items, currently labeled as games in the UI and code.
-- The current list is rendered while items exist.
+- Users can add 2 to 128 items, currently labeled as games in the UI and code.
+- The current list is rendered while items exist during the setup phase.
 - Items can be removed before the bracket starts.
-- Each item has a `position` of `random`, `A1`, `A2`, `B1`, or `B2`.
-- The UI prevents selecting a fixed bracket position already used by another item.
-- Random items are assigned to available fixed positions using `randomOrder`.
+- Each item has a `position` of `random` or a numeric bracket slot.
+- The UI prevents selecting a fixed bracket slot already used by another item.
+- Random items are assigned to available numeric slots using `randomOrder`.
 - Random items can be shuffled before the bracket starts.
-- The bracket preview renders semifinals for A1 vs A2 and B1 vs B2.
-- The bracket can start only when exactly 4 items have been added.
-- Starting the bracket locks item editing.
-- Semifinal winners can be selected after the bracket starts.
-- The final is populated from semifinal winners.
-- A champion can be selected once both semifinal winners exist.
-- Changing a semifinal winner clears the current champion.
-- Returning to setup clears semifinal winners and champion.
-- Automated tests cover key 4-item bracket setup and winner flow behavior.
+- The bracket preview renders dynamic rounds for the current item count.
+- The bracket can start when at least 2 items have been added.
+- Starting the bracket moves the UI into a separate winner-selection phase.
+- Non-power-of-two counts use one or more reduction rounds with two-player or three-way matches and no automatic byes.
+- Winner selections populate later-round choices, and changing a prior winner clears dependent later winners.
+- A champion is displayed after the final winner is selected.
+- Returning to setup clears selected winners and the champion.
+- Browser `localStorage` persists games, positions, started state, selected winners, and champion.
+- Automated tests cover core setup, dynamic slot assignment, winner advancement, winner reset, three-way opening matches, and E2E champion selection.
 
 ## Unknown Or Not Confirmed
 
-- Persistent storage across browser reloads is not confirmed.
+- Login/profile support is not implemented.
 - Deployment target is unknown.
 - Production design goals are unknown.
 - Accessibility requirements beyond current HTML semantics are unknown.

@@ -1,13 +1,13 @@
 # What2Pick Current State
 
-Last updated: 2026-07-23
+Last updated: 2026-07-24
 
 ## Confirmed Application State
 
 - The repository contains a small React + TypeScript + Vite app.
 - The app is currently implemented mostly in `src/App.tsx`.
 - The UI is a dynamic 2-to-128 item bracket workflow for choosing a champion.
-- The app uses local React state only, based on the inspected code.
+- The app uses local React state backed by browser `localStorage` persistence.
 - The README is still the default React + TypeScript + Vite template text.
 - Vitest + React Testing Library are configured for automated UI behavior tests.
 - Playwright is configured for end-to-end browser tests against a running Vite dev server.
@@ -29,12 +29,13 @@ Last updated: 2026-07-23
 - Select winners for each generated match.
 - Populate later-round choices from earlier winners.
 - Select and display a champion from the final match.
+- Persist the game list, bracket positions, started phase, selected winners, and champion across browser reloads on the same device/browser.
 - Automated tests cover core setup, dynamic slot assignment, two-player flow, winner reset, and three-way opening match behavior.
 - End-to-end Playwright spec exists for the 4-game champion selection flow in Chromium, updated for dynamic slot labels.
 
 ## Planned Or Required But Not Confirmed As Implemented
 
-- Persistent storage across browser reloads is not confirmed.
+- Login/profile support is not implemented. Real user profiles will require a backend/auth provider or another shared storage strategy beyond current browser-local persistence.
 
 ## Latest Session Notes
 
@@ -65,6 +66,9 @@ Last updated: 2026-07-23
 - Reworked the visual identity with an inline decision/bracket logo mark, a teal/amber/dark background grid, and updated accent colors.
 - Changed bracket rendering to an arena layout: left-side rounds, centered final, and mirrored right-side rounds, with the bracket scroll position centered around the final.
 - Verified the centered bracket layout with 16-game desktop and 8-game mobile Playwright checks; the page still avoids global horizontal overflow.
+- Added `localStorage` persistence for games, positions, bracket started state, selected winners, and champion.
+- Added unit coverage for restoring setup state and a completed bracket after reload.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 
 ## Initial Memory Setup Notes
 

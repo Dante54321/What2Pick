@@ -11,6 +11,7 @@ import './App.css'
 
 const MIN_BRACKET_ITEMS = 2
 const MAX_BRACKET_ITEMS = 128
+const STORAGE_KEY = 'what2pick.bracket.v1'
 
 type FixedBracketPosition = `slot-${number}`
 type BracketPosition = 'random' | FixedBracketPosition
@@ -20,6 +21,12 @@ type Game = {
   name: string
   position: BracketPosition
   randomOrder: number
+}
+
+type PersistedBracketState = {
+  games: Game[]
+  bracketStarted: boolean
+  winnerByMatchId: Record<string, string>
 }
 
 type BracketEntry =
@@ -189,13 +196,95 @@ function buildBracketRounds(orderedGames: Game[]) {
   }))
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isBracketPosition(value: unknown): value is BracketPosition {
+  return (
+    value === 'random' ||
+    (typeof value === 'string' && /^slot-\d+$/.test(value))
+  )
+}
+
+function isGame(value: unknown): value is Game {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
+    isBracketPosition(value.position) &&
+    typeof value.randomOrder === 'number'
+  )
+}
+
+function isWinnerMap(value: unknown): value is Record<string, string> {
+  return (
+    isRecord(value) &&
+    Object.values(value).every((winnerId) => typeof winnerId === 'string')
+  )
+}
+
+function readPersistedBracketState(): PersistedBracketState {
+  if (typeof window === 'undefined') {
+    return {
+      games: [],
+      bracketStarted: false,
+      winnerByMatchId: {},
+    }
+  }
+
+  try {
+    const storedState = window.localStorage.getItem(STORAGE_KEY)
+
+    if (!storedState) {
+      return {
+        games: [],
+        bracketStarted: false,
+        winnerByMatchId: {},
+      }
+    }
+
+    const parsedState: unknown = JSON.parse(storedState)
+
+    if (!isRecord(parsedState) || !Array.isArray(parsedState.games)) {
+      return {
+        games: [],
+        bracketStarted: false,
+        winnerByMatchId: {},
+      }
+    }
+
+    const games = parsedState.games.filter(isGame).slice(0, MAX_BRACKET_ITEMS)
+    const winnerByMatchId = isWinnerMap(parsedState.winnerByMatchId)
+      ? parsedState.winnerByMatchId
+      : {}
+
+    return {
+      games,
+      bracketStarted:
+        parsedState.bracketStarted === true &&
+        games.length >= MIN_BRACKET_ITEMS,
+      winnerByMatchId,
+    }
+  } catch {
+    return {
+      games: [],
+      bracketStarted: false,
+      winnerByMatchId: {},
+    }
+  }
+}
+
 function App() {
+  const persistedState = useMemo(readPersistedBracketState, [])
   const [gameName, setGameName] = useState('')
-  const [games, setGames] = useState<Game[]>([])
-  const [bracketStarted, setBracketStarted] = useState(false)
+  const [games, setGames] = useState<Game[]>(persistedState.games)
+  const [bracketStarted, setBracketStarted] = useState(
+    persistedState.bracketStarted,
+  )
   const [winnerByMatchId, setWinnerByMatchId] = useState<
     Record<string, string>
-  >({})
+  >(persistedState.winnerByMatchId)
   const bracketScrollbarRef = useRef<HTMLDivElement>(null)
   const bracketViewportRef = useRef<HTMLDivElement>(null)
 
@@ -308,6 +397,21 @@ function App() {
   function findGame(gameId: string | undefined) {
     return games.find((game) => game.id === gameId)
   }
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          games,
+          bracketStarted,
+          winnerByMatchId,
+        } satisfies PersistedBracketState),
+      )
+    } catch {
+      // Continue without persistence when storage is unavailable.
+    }
+  }, [bracketStarted, games, winnerByMatchId])
 
   useEffect(() => {
     const scrollbar = bracketScrollbarRef.current
