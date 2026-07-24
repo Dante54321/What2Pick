@@ -1,4 +1,11 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+} from 'react'
 import { getReductionRoundPlan, getReductionRoundPlans } from './bracket'
 import './App.css'
 
@@ -34,6 +41,13 @@ type BracketMatch = {
 type BracketRound = {
   id: string
   name: string
+  matches: BracketMatch[]
+}
+
+type BracketRoundColumn = {
+  id: string
+  name: string
+  roundIndex: number
   matches: BracketMatch[]
 }
 
@@ -182,6 +196,8 @@ function App() {
   const [winnerByMatchId, setWinnerByMatchId] = useState<
     Record<string, string>
   >({})
+  const bracketScrollbarRef = useRef<HTMLDivElement>(null)
+  const bracketViewportRef = useRef<HTMLDivElement>(null)
 
   const bracketAssignments = useMemo(
     () => getBracketAssignments(games),
@@ -191,7 +207,82 @@ function App() {
     () => buildBracketRounds(bracketAssignments),
     [bracketAssignments],
   )
+  const matchById = useMemo(() => {
+    const matches = new Map<string, BracketMatch>()
+
+    bracketRounds.forEach((round) => {
+      round.matches.forEach((match) => {
+        matches.set(match.id, match)
+      })
+    })
+
+    return matches
+  }, [bracketRounds])
   const finalMatch = bracketRounds.at(-1)?.matches[0]
+  const finalBranchMatchIds = useMemo(() => {
+    function collectBranchMatches(
+      entry: BracketEntry | undefined,
+      matches: Set<string>,
+    ) {
+      if (!entry || entry.type !== 'match') {
+        return
+      }
+
+      matches.add(entry.matchId)
+
+      const match = matchById.get(entry.matchId)
+
+      match?.participants.forEach((participant) => {
+        collectBranchMatches(participant, matches)
+      })
+    }
+
+    const left = new Set<string>()
+    const right = new Set<string>()
+
+    collectBranchMatches(finalMatch?.participants[0], left)
+    collectBranchMatches(finalMatch?.participants[1], right)
+
+    return { left, right }
+  }, [finalMatch, matchById])
+  const sideRoundColumns = useMemo(
+    () =>
+      bracketRounds.slice(0, -1).map((round, roundIndex) => ({
+        left: {
+          id: `${round.id}-left`,
+          name: round.name,
+          roundIndex,
+          matches: round.matches.filter((match) =>
+            finalBranchMatchIds.left.has(match.id),
+          ),
+        },
+        right: {
+          id: `${round.id}-right`,
+          name: round.name,
+          roundIndex,
+          matches: round.matches.filter((match) =>
+            finalBranchMatchIds.right.has(match.id),
+          ),
+        },
+      })),
+    [bracketRounds, finalBranchMatchIds],
+  )
+  const leftRoundColumns = sideRoundColumns
+    .map((round) => round.left)
+    .filter((round) => round.matches.length > 0)
+  const rightRoundColumns = sideRoundColumns
+    .map((round) => round.right)
+    .filter((round) => round.matches.length > 0)
+    .reverse()
+  const finalRoundColumn = bracketRounds.at(-1)
+    ? {
+        ...bracketRounds.at(-1)!,
+        roundIndex: bracketRounds.length - 1,
+      }
+    : undefined
+  const bracketColumnCount =
+    leftRoundColumns.length + rightRoundColumns.length +
+    (finalRoundColumn ? 1 : 0)
   const champion = finalMatch
     ? games.find((game) => game.id === winnerByMatchId[finalMatch.id])
     : undefined
@@ -217,6 +308,23 @@ function App() {
   function findGame(gameId: string | undefined) {
     return games.find((game) => game.id === gameId)
   }
+
+  useEffect(() => {
+    const scrollbar = bracketScrollbarRef.current
+    const viewport = bracketViewportRef.current
+
+    if (!scrollbar || !viewport || bracketColumnCount <= 1) {
+      return
+    }
+
+    requestAnimationFrame(() => {
+      const centeredScrollLeft =
+        Math.max(0, viewport.scrollWidth - viewport.clientWidth) / 2
+
+      viewport.scrollLeft = centeredScrollLeft
+      scrollbar.scrollLeft = centeredScrollLeft
+    })
+  }, [bracketColumnCount, games.length])
 
   function resolveEntry(entry: BracketEntry) {
     if (entry.type === 'game') {
@@ -306,120 +414,235 @@ function App() {
     }
   }
 
+  function syncBracketScroll(source: 'scrollbar' | 'viewport') {
+    const scrollbar = bracketScrollbarRef.current
+    const viewport = bracketViewportRef.current
+
+    if (!scrollbar || !viewport) {
+      return
+    }
+
+    if (source === 'scrollbar') {
+      viewport.scrollLeft = scrollbar.scrollLeft
+      return
+    }
+
+    scrollbar.scrollLeft = viewport.scrollLeft
+  }
+
+  function getRoundVisualStyle(depth: number) {
+    const depthScale = 2 ** depth - 1
+
+    return {
+      '--round-gap': `${0.8 + depthScale * 8.3}rem`,
+      '--round-pad': `${depthScale * 4.7}rem`,
+    } as CSSProperties
+  }
+
+  function renderRoundColumn(
+    round: BracketRoundColumn,
+    side: 'left' | 'center' | 'right',
+    depth = 0,
+  ) {
+    return (
+      <section
+        className={`bracket-round bracket-round-${side}`}
+        key={round.id}
+        style={side === 'center' ? undefined : getRoundVisualStyle(depth)}
+      >
+        <h3>{round.name}</h3>
+
+        <div className="bracket-match-stack">
+          {round.matches.map((match) => {
+            const resolvedParticipants = match.participants.map(resolveEntry)
+            const isReady = resolvedParticipants.every(Boolean)
+
+            return (
+              <article key={match.id}>
+                <h4>{match.label}</h4>
+
+                {match.participants.map((participant, index) => {
+                  const game = resolvedParticipants[index]
+                  const isSelected = game?.id === winnerByMatchId[match.id]
+                  const placeholder =
+                    participant.type === 'match'
+                      ? `Winner of ${participant.matchId}`
+                      : 'Empty'
+
+                  return (
+                    <button
+                      type="button"
+                      key={`${match.id}-${index}`}
+                      className={
+                        isSelected
+                          ? 'bracket-choice selected'
+                          : 'bracket-choice'
+                      }
+                      onClick={() =>
+                        selectMatchWinner(round.roundIndex, match.id, game)
+                      }
+                      disabled={!bracketStarted || !isReady || !game}
+                    >
+                      <strong>Pick {index + 1}:</strong>
+                      <span>{game?.name ?? placeholder}</span>
+                    </button>
+                  )
+                })}
+              </article>
+            )
+          })}
+        </div>
+      </section>
+    )
+  }
+
   return (
-    <main>
+    <main className={bracketStarted ? 'playing-phase' : 'setup-phase'}>
       <header>
-        <h1>What2Pick</h1>
+        <div className="brand-lockup">
+          <svg
+            aria-hidden="true"
+            className="brand-mark"
+            viewBox="0 0 64 64"
+          >
+            <path
+              d="M14 15h12c6 0 10 4 10 10v14c0 6 4 10 10 10h4"
+              className="brand-path brand-path-left"
+            />
+            <path
+              d="M50 15H38c-6 0-10 4-10 10v14c0 6-4 10-10 10h-4"
+              className="brand-path brand-path-right"
+            />
+            <circle cx="14" cy="15" r="5" className="brand-node" />
+            <circle cx="50" cy="15" r="5" className="brand-node" />
+            <circle cx="32" cy="32" r="6" className="brand-core" />
+            <path d="m28 32 3 3 6-7" className="brand-check" />
+          </svg>
+
+          <h1>What2Pick</h1>
+        </div>
         <p>Create a bracket. Make your choice.</p>
       </header>
 
-      <section>
-        <h2>Add your games</h2>
-        <p>
-          {games.length} of {MAX_BRACKET_ITEMS} games added. Start with at
-          least {MIN_BRACKET_ITEMS}.
-        </p>
+      {!bracketStarted && (
+        <section className="setup-panel">
+          <h2>Add your games</h2>
+          <p>
+            {games.length} of {MAX_BRACKET_ITEMS} games added. Start with at
+            least {MIN_BRACKET_ITEMS}.
+          </p>
 
-        <form onSubmit={handleSubmit}>
-          <label htmlFor="game-name">Game name</label>
+          <form onSubmit={handleSubmit}>
+            <label htmlFor="game-name">Game name</label>
 
-          <input
-            id="game-name"
-            type="text"
-            placeholder="Example: Elden Ring"
-            value={gameName}
-            onChange={(event) => setGameName(event.target.value)}
-            disabled={bracketStarted || games.length >= MAX_BRACKET_ITEMS}
-          />
+            <input
+              id="game-name"
+              type="text"
+              placeholder="Example: Elden Ring"
+              value={gameName}
+              onChange={(event) => setGameName(event.target.value)}
+              disabled={bracketStarted || games.length >= MAX_BRACKET_ITEMS}
+            />
+
+            <button
+              type="submit"
+              disabled={bracketStarted || games.length >= MAX_BRACKET_ITEMS}
+            >
+              Add game
+            </button>
+          </form>
+
+          {games.length === 0 ? (
+            <p>No games added yet.</p>
+          ) : (
+            <ul className="game-list">
+              {games.map((game) => (
+                <li key={game.id}>
+                  <span>{game.name}</span>
+
+                  <label htmlFor={`position-${game.id}`}>
+                    Position
+                  </label>
+
+                  <select
+                    id={`position-${game.id}`}
+                    value={game.position}
+                    onChange={(event) =>
+                      updateGamePosition(
+                        game.id,
+                        event.target.value as BracketPosition,
+                      )
+                    }
+                    disabled={bracketStarted}
+                  >
+                    <option value="random">Random</option>
+
+                    {positionOptions.map((position, index) => {
+                      const isOccupied = games.some(
+                        (otherGame) =>
+                          otherGame.id !== game.id &&
+                          otherGame.position === position,
+                      )
+
+                      return (
+                        <option
+                          key={position}
+                          value={position}
+                          disabled={isOccupied}
+                        >
+                          Slot {index + 1}
+                        </option>
+                      )
+                    })}
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={() => removeGame(game.id)}
+                    disabled={bracketStarted}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
 
           <button
-            type="submit"
-            disabled={bracketStarted || games.length >= MAX_BRACKET_ITEMS}
+            type="button"
+            onClick={shuffleRandomGames}
+            disabled={bracketStarted || randomGamesCount < 2}
           >
-            Add game
+            Shuffle random games
           </button>
-        </form>
+          <button
+            type="button"
+            onClick={toggleBracket}
+            disabled={!bracketStarted && !canStartBracket}
+          >
+            {bracketStarted ? 'Edit bracket setup' : 'Start bracket'}
+          </button>
+        </section>
+      )}
 
-        {games.length === 0 ? (
-          <p>No games added yet.</p>
-        ) : (
-          <ul className="game-list">
-            {games.map((game) => (
-              <li key={game.id}>
-                <span>{game.name}</span>
+      <section className="bracket-panel">
+        <div className="bracket-panel-header">
+          <div>
+            <h2>{bracketStarted ? 'Choose the winner' : 'Bracket preview'}</h2>
 
-                <label htmlFor={`position-${game.id}`}>
-                  Position
-                </label>
+            {bracketStarted && (
+              <p role="status">
+                Bracket started. The setup is now locked.
+              </p>
+            )}
+          </div>
 
-                <select
-                  id={`position-${game.id}`}
-                  value={game.position}
-                  onChange={(event) =>
-                    updateGamePosition(
-                      game.id,
-                      event.target.value as BracketPosition,
-                    )
-                  }
-                  disabled={bracketStarted}
-                >
-                  <option value="random">Random</option>
-
-                  {positionOptions.map((position, index) => {
-                    const isOccupied = games.some(
-                      (otherGame) =>
-                        otherGame.id !== game.id &&
-                        otherGame.position === position,
-                    )
-
-                    return (
-                      <option
-                        key={position}
-                        value={position}
-                        disabled={isOccupied}
-                      >
-                        Slot {index + 1}
-                      </option>
-                    )
-                  })}
-                </select>
-
-                <button
-                  type="button"
-                  onClick={() => removeGame(game.id)}
-                  disabled={bracketStarted}
-                >
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <button
-          type="button"
-          onClick={shuffleRandomGames}
-          disabled={bracketStarted || randomGamesCount < 2}
-        >
-          Shuffle random games
-        </button>
-        <button
-          type="button"
-          onClick={toggleBracket}
-          disabled={!bracketStarted && !canStartBracket}
-        >
-          {bracketStarted ? 'Edit bracket setup' : 'Start bracket'}
-        </button>
-
-        {bracketStarted && (
-          <p role="status">
-            Bracket started. The setup is now locked.
-          </p>
-        )}
-      </section>
-
-      <section>
-        <h2>Bracket preview</h2>
+          {bracketStarted && (
+            <button type="button" onClick={toggleBracket}>
+              Edit bracket setup
+            </button>
+          )}
+        </div>
 
         {games.length < MIN_BRACKET_ITEMS ? (
           <p>Add at least {MIN_BRACKET_ITEMS} games to preview the bracket.</p>
@@ -440,53 +663,49 @@ function App() {
               )}
             </p>
 
-            <div className="bracket-rounds">
-              {bracketRounds.map((round, roundIndex) => (
-                <section className="bracket-round" key={round.id}>
-                  <h3>{round.name}</h3>
+            <div
+              className="bracket-scrollbar"
+              aria-label="Scroll bracket rounds horizontally"
+              ref={bracketScrollbarRef}
+              onScroll={() => syncBracketScroll('scrollbar')}
+            >
+              <div
+                className="bracket-scrollbar-content"
+                style={{
+                  width: `${bracketColumnCount * 19 - 1}rem`,
+                }}
+              />
+            </div>
 
-                  {round.matches.map((match) => {
-                    const resolvedParticipants =
-                      match.participants.map(resolveEntry)
-                    const isReady = resolvedParticipants.every(Boolean)
+            <div
+              className="bracket-viewport"
+              aria-label="Bracket rounds"
+              ref={bracketViewportRef}
+              onScroll={() => syncBracketScroll('viewport')}
+            >
+              <div className="bracket-rounds bracket-arena">
+                <div className="bracket-side bracket-side-left">
+                  {leftRoundColumns.map((round, index) =>
+                    renderRoundColumn(round, 'left', index),
+                  )}
+                </div>
 
-                    return (
-                      <article key={match.id}>
-                        <h4>{match.label}</h4>
+                {finalRoundColumn && (
+                  <div className="bracket-final-column">
+                    {renderRoundColumn(finalRoundColumn, 'center')}
+                  </div>
+                )}
 
-                        {match.participants.map((participant, index) => {
-                          const game = resolvedParticipants[index]
-                          const isSelected =
-                            game?.id === winnerByMatchId[match.id]
-                          const placeholder =
-                            participant.type === 'match'
-                              ? `Winner of ${participant.matchId}`
-                              : 'Empty'
-
-                          return (
-                            <button
-                              type="button"
-                              key={`${match.id}-${index}`}
-                              className={
-                                isSelected
-                                  ? 'bracket-choice selected'
-                                  : 'bracket-choice'
-                              }
-                              onClick={() =>
-                                selectMatchWinner(roundIndex, match.id, game)
-                              }
-                              disabled={!bracketStarted || !isReady || !game}
-                            >
-                              <strong>Pick {index + 1}:</strong>
-                              <span>{game?.name ?? placeholder}</span>
-                            </button>
-                          )
-                        })}
-                      </article>
-                    )
-                  })}
-                </section>
-              ))}
+                <div className="bracket-side bracket-side-right">
+                  {rightRoundColumns.map((round, index) =>
+                    renderRoundColumn(
+                      round,
+                      'right',
+                      rightRoundColumns.length - index - 1,
+                    ),
+                  )}
+                </div>
+              </div>
             </div>
 
             {champion && (

@@ -40,6 +40,10 @@ describe('App', () => {
     await user.click(startButton)
 
     expect(screen.getByText(/bracket started/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/game name/i)).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /edit bracket setup/i }),
+    ).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /final/i })).toBeInTheDocument()
   })
 

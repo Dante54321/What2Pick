@@ -1,6 +1,6 @@
 # What2Pick Current State
 
-Last updated: 2026-07-22
+Last updated: 2026-07-23
 
 ## Confirmed Application State
 
@@ -21,7 +21,9 @@ Last updated: 2026-07-22
 - Shuffle items assigned to `Random`.
 - Show a bracket preview with dynamic rounds.
 - Start the bracket with 2 to 128 items.
-- Lock setup while the bracket is started.
+- Move from setup into a separate winner-selection phase when the bracket starts.
+- Hide setup while the bracket is started, with an option to return to setup and clear winners.
+- Use a full-width bracket panel in the winner-selection phase so more rounds are visible.
 - Generate one or more reduction rounds for non-power-of-two counts, grouping all participants into two-player or three-way matches with no automatic byes.
 - Continue reduction rounds until the remaining winner count is a power of 2, then use regular two-player rounds.
 - Select winners for each generated match.
@@ -50,6 +52,19 @@ Last updated: 2026-07-22
 - `npm.cmd run test:e2e` was verified with Vite started and stopped inside the validation script; the Playwright config remains manual-server based.
 - Corrected the opening-round rule so 9 items become 3 two-player matches and 1 three-way match, producing 4 winners.
 - Corrected larger non-power-of-two counts such as 100 to use repeated reduction rounds instead of automatic byes.
+- Split setup and winner selection into distinct UI phases.
+- Expanded the started-bracket view to a full-width panel with a horizontal round track and an edit-setup action.
+- Added unit coverage for hiding setup in the started-bracket phase.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Fixed bracket preview overflow by moving horizontal scrolling to a dedicated `.bracket-viewport` wrapper and making the setup preview span the full main width.
+- Verified with 32-game desktop and mobile Playwright measurements that the page width stays within the viewport and the last round is reachable through bracket-only horizontal scroll.
+- Added a sticky, synchronized top horizontal scrollbar for the bracket preview because large previews put the native horizontal scrollbar far below the visible round headers.
+- Set bracket round grid items to align at the top so later rounds do not stretch to the height of the longest opening round.
+- Made the setup `Add your games` panel span the full page width and changed the participant list to a responsive multi-column grid.
+- Verified the participant grid with 100 games: 4 columns on 1280px desktop, 2 columns on 820px tablet, and 1 column on 390px mobile without horizontal page overflow.
+- Reworked the visual identity with an inline decision/bracket logo mark, a teal/amber/dark background grid, and updated accent colors.
+- Changed bracket rendering to an arena layout: left-side rounds, centered final, and mirrored right-side rounds, with the bracket scroll position centered around the final.
+- Verified the centered bracket layout with 16-game desktop and 8-game mobile Playwright checks; the page still avoids global horizontal overflow.
 
 ## Initial Memory Setup Notes
 
