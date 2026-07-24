@@ -15,6 +15,7 @@ Last updated: 2026-07-24
 ## Implemented Product Behavior
 
 - Add named choices up to a maximum of 128.
+- Import multiple choices from a pasted line-by-line list, ignoring empty lines and respecting the 128-choice cap.
 - Display all added items in a list during the current app session.
 - Assign each item to `Random` or a numeric bracket slot.
 - Prevent duplicate fixed position assignments through disabled `<option>` entries.
@@ -76,6 +77,10 @@ Last updated: 2026-07-24
 - Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 - Renamed user-facing and app-state language from games to choices.
 - Added unit coverage for restoring legacy saved `games` data as choices.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Added bulk choice import through a setup textarea with an import summary and `Add list` action.
+- Added `src/importChoices.ts` for import parsing and cap handling.
+- Added unit coverage for bulk import, empty-line trimming, and remaining-slot limit handling.
 - Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 
 ## Initial Memory Setup Notes

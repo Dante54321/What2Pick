@@ -174,6 +174,7 @@ form label {
 }
 
 input,
+textarea,
 select {
   color: #f8fafc;
   background: #0c1220;
@@ -187,7 +188,16 @@ input {
   padding: 0.75rem;
 }
 
+textarea {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+  padding: 0.75rem;
+  resize: vertical;
+}
+
 input:focus,
+textarea:focus,
 select:focus {
   outline: 2px solid #8b5cf6;
   outline-offset: 2px;
@@ -238,6 +248,17 @@ button:disabled {
 
 .danger-button:hover:not(:disabled) {
   background: #b91c1c;
+}
+
+.bulk-choice-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.import-summary {
+  align-self: center;
+  margin: 0;
+  color: #9da9bc;
+  font-size: 0.9rem;
 }
 
 .choice-list {

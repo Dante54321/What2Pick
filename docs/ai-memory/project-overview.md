@@ -47,6 +47,7 @@ Known requirements from the user:
 Confirmed in `src/App.tsx`:
 
 - Users can add 2 to 128 choices.
+- Users can import multiple choices from a pasted line-by-line list.
 - The current list is rendered while items exist during the setup phase.
 - Items can be removed before the bracket starts.
 - Each item has a `position` of `random` or a numeric bracket slot.

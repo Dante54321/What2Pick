@@ -1,8 +1,15 @@
-import { cleanup, render, screen, within } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { getReductionRoundPlan, getReductionRoundPlans } from './bracket'
+import { getImportableChoiceNames } from './importChoices'
 
 afterEach(() => {
   cleanup()
@@ -66,6 +73,35 @@ describe('App', () => {
     expect(
       within(positionSelects[1]).getByRole('option', { name: 'Slot 2' }),
     ).toBeEnabled()
+  })
+
+  it('imports bulk choices while ignoring empty lines', async () => {
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    fireEvent.change(screen.getByLabelText(/bulk choices/i), {
+      target: { value: 'Pizza\n\nSushi\n  Tacos  ' },
+    })
+
+    expect(screen.getByText(/3 ready\. 128 slots available/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /add list/i }))
+
+    const list = screen.getByRole('list')
+
+    expect(screen.getByText(/3 of 128 choices added/i)).toBeInTheDocument()
+    expect(within(list).getByText('Pizza')).toBeInTheDocument()
+    expect(within(list).getByText('Sushi')).toBeInTheDocument()
+    expect(within(list).getByText('Tacos')).toBeInTheDocument()
+    expect(screen.getByLabelText(/bulk choices/i)).toHaveValue('')
+  })
+
+  it('limits bulk imports to the remaining choice slots', () => {
+    expect(getImportableChoiceNames('Extra 1\nExtra 2\nExtra 3', 2)).toEqual({
+      importableChoiceNames: ['Extra 1', 'Extra 2'],
+      skippedChoicesCount: 1,
+    })
   })
 
   it('persists choices and fixed positions across reloads', async () => {

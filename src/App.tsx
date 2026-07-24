@@ -7,6 +7,7 @@ import {
   type FormEvent,
 } from 'react'
 import { getReductionRoundPlan, getReductionRoundPlans } from './bracket'
+import { getImportableChoiceNames } from './importChoices'
 import './App.css'
 
 const MIN_BRACKET_ITEMS = 2
@@ -290,6 +291,7 @@ function readPersistedBracketState(): PersistedBracketState {
 function App() {
   const persistedState = useMemo(readPersistedBracketState, [])
   const [choiceName, setChoiceName] = useState('')
+  const [bulkChoiceText, setBulkChoiceText] = useState('')
   const [choices, setChoices] = useState<Choice[]>(persistedState.choices)
   const [bracketStarted, setBracketStarted] = useState(
     persistedState.bracketStarted,
@@ -392,6 +394,11 @@ function App() {
   ).length
   const canStartBracket =
     choices.length >= MIN_BRACKET_ITEMS && choices.length <= MAX_BRACKET_ITEMS
+  const availableChoiceSlots = MAX_BRACKET_ITEMS - choices.length
+  const { importableChoiceNames, skippedChoicesCount } = useMemo(
+    () => getImportableChoiceNames(bulkChoiceText, availableChoiceSlots),
+    [availableChoiceSlots, bulkChoiceText],
+  )
   const positionOptions = Array.from(
     { length: choices.length },
     (_, index) => `slot-${index + 1}` as FixedBracketPosition,
@@ -468,15 +475,35 @@ function App() {
       return
     }
 
-    const newChoice: Choice = {
+    setChoices([...choices, createChoice(trimmedName)])
+    setChoiceName('')
+  }
+
+  function createChoice(name: string): Choice {
+    return {
       id: crypto.randomUUID(),
-      name: trimmedName,
+      name,
       position: 'random',
       randomOrder: Math.random(),
     }
+  }
 
-    setChoices([...choices, newChoice])
-    setChoiceName('')
+  function importBulkChoices(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (
+      bracketStarted ||
+      availableChoiceSlots <= 0 ||
+      importableChoiceNames.length === 0
+    ) {
+      return
+    }
+
+    setChoices([
+      ...choices,
+      ...importableChoiceNames.map((name) => createChoice(name)),
+    ])
+    setBulkChoiceText('')
   }
 
   function removeChoice(choiceId: string) {
@@ -555,6 +582,7 @@ function App() {
     }
 
     setChoiceName('')
+    setBulkChoiceText('')
     setChoices([])
     setBracketStarted(false)
     setWinnerByMatchId({})
@@ -695,6 +723,38 @@ function App() {
               disabled={bracketStarted || choices.length >= MAX_BRACKET_ITEMS}
             >
               Add choice
+            </button>
+          </form>
+
+          <form className="bulk-choice-form" onSubmit={importBulkChoices}>
+            <label htmlFor="bulk-choice-list">Bulk choices</label>
+
+            <textarea
+              id="bulk-choice-list"
+              placeholder={'Pizza\nSushi\nTacos'}
+              value={bulkChoiceText}
+              onChange={(event) => setBulkChoiceText(event.target.value)}
+              disabled={bracketStarted || choices.length >= MAX_BRACKET_ITEMS}
+              rows={5}
+            />
+
+            <p className="import-summary">
+              {importableChoiceNames.length} ready. {availableChoiceSlots}{' '}
+              slots available.
+              {skippedChoicesCount > 0
+                ? ` ${skippedChoicesCount} will not fit.`
+                : ''}
+            </p>
+
+            <button
+              type="submit"
+              disabled={
+                bracketStarted ||
+                importableChoiceNames.length === 0 ||
+                choices.length >= MAX_BRACKET_ITEMS
+              }
+            >
+              Add list
             </button>
           </form>
 
