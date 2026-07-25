@@ -1,13 +1,13 @@
 # What2Pick Current State
 
-Last updated: 2026-07-24
+Last updated: 2026-07-25
 
 ## Confirmed Application State
 
 - The repository contains a small React + TypeScript + Vite app.
 - The app is currently implemented mostly in `src/App.tsx`.
 - The UI is a dynamic 2-to-128 item bracket workflow for choosing a champion.
-- The app uses local React state backed by browser `localStorage` persistence.
+- The app uses local React state and is being migrated from browser-only persistence to Supabase user-scoped persistence.
 - The README is still the default React + TypeScript + Vite template text.
 - Vitest + React Testing Library are configured for automated UI behavior tests.
 - Playwright is configured for end-to-end browser tests against a running Vite dev server.
@@ -30,7 +30,9 @@ Last updated: 2026-07-24
 - Select winners for each generated match.
 - Populate later-round choices from earlier winners.
 - Select and display a champion from the final match.
-- Persist the choice list, bracket positions, started phase, selected winners, and champion across browser reloads on the same device/browser.
+- Persist the choice list, bracket positions, started phase, selected winners, champion, and dark mode preference to Supabase only when a user is logged in.
+- Guest users can use the bracket locally during the current session, but bracket/list/progress state is not persisted after reload or logout.
+- Persist a user preference for dark mode locally; this should move to user-scoped storage after login/profile support is implemented.
 - Use generic `choices` language in the UI and app state; legacy saved `games` storage is still read for compatibility.
 - Clear the saved local bracket through a confirmed `Start over` action.
 - Automated tests cover core setup, dynamic slot assignment, two-player flow, winner reset, and three-way opening match behavior.
@@ -38,7 +40,10 @@ Last updated: 2026-07-24
 
 ## Planned Or Required But Not Confirmed As Implemented
 
-- Login/profile support is not implemented. Real user profiles will require a backend/auth provider or another shared storage strategy beyond current browser-local persistence.
+- Login/profile support is partially implemented with Supabase email/password auth.
+- Supabase has been selected for authentication and user-scoped database storage.
+- Supabase client wiring has started; `.env.local` contains the local project URL and publishable key, and `.env.example` documents the required Vite environment variables.
+- `docs/supabase-schema.sql` must be run in Supabase before user bracket state can load/save remotely.
 
 ## Latest Session Notes
 
@@ -81,6 +86,30 @@ Last updated: 2026-07-24
 - Added bulk choice import through a setup textarea with an import summary and `Add list` action.
 - Added `src/importChoices.ts` for import parsing and cap handling.
 - Added unit coverage for bulk import, empty-line trimming, and remaining-slot limit handling.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Confirmed product direction for Supabase-backed login, profiles, user-specific bracket data, and user preferences.
+- Added a `Dark mode` user setting in the header with local persistence under `what2pick.settings.v1`.
+- Added light theme styles while keeping dark mode as the default.
+- Updated unit coverage for persisted theme preference and adjusted start-over behavior to preserve settings while clearing bracket data.
+- Verified `npm.cmd run test`, `npm.cmd run build`, and `npm.cmd run lint` pass.
+- Installed `@supabase/supabase-js`.
+- Added `src/supabaseClient.ts` for Vite-based Supabase configuration.
+- Replaced the header magic-link login form with a separate auth screen opened from header actions.
+- Added email/password login, account creation, auth-mode switching, back navigation, and sign-out flow.
+- Added unit coverage for opening the auth screen and switching to account creation.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd audit --omit=dev` pass.
+- Added `docs/supabase-schema.sql` with `user_bracket_states` table, RLS enabled, and per-user select/insert/update policies.
+- Changed bracket/list/progress persistence so it only saves to Supabase for the logged-in user.
+- Changed logout/guest behavior so bracket/list/progress resets to empty and legacy local bracket storage is cleared.
+- Updated tests to confirm guest bracket state is not restored across reloads.
+- Verified `npm.cmd run test`, `npm.cmd run build`, and `npm.cmd run lint` pass.
+- Moved account actions, signed-in user display, sign out, sync status, and dark mode into a compact top-right header control area.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Reworked the setup input area into a responsive two-column entry layout on wider screens.
+- Changed the choice list to use responsive CSS columns so larger screens split choices into left/right halves while mobile remains one column.
+- Added stable minimum choice row height to reduce visible layout shifting as choices are added.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Adjusted the bracket arena to reserve equal left/right side widths around the final round so the final stays aligned with the center of the viewport when possible.
 - Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 
 ## Initial Memory Setup Notes

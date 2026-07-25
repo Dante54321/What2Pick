@@ -104,7 +104,7 @@ describe('App', () => {
     })
   })
 
-  it('persists choices and fixed positions across reloads', async () => {
+  it('does not persist guest choices across reloads', async () => {
     const user = userEvent.setup()
     const { unmount } = render(<App />)
 
@@ -118,19 +118,12 @@ describe('App', () => {
     unmount()
     render(<App />)
 
-    expect(screen.getByText(/2 of 128 choices added/i)).toBeInTheDocument()
-    const restoredList = screen.getByRole('list')
-
-    expect(within(restoredList).getByText('Elden Ring')).toBeInTheDocument()
-    expect(within(restoredList).getByText('Hades')).toBeInTheDocument()
-
-    const restoredPositionSelects = screen.getAllByLabelText(/position/i)
-
-    expect(restoredPositionSelects[0]).toHaveValue('slot-1')
-    expect(restoredPositionSelects[1]).toHaveValue('slot-2')
+    expect(screen.getByText(/0 of 128 choices added/i)).toBeInTheDocument()
+    expect(screen.queryByText('Elden Ring')).not.toBeInTheDocument()
+    expect(screen.queryByText('Hades')).not.toBeInTheDocument()
   })
 
-  it('restores legacy saved games as choices', () => {
+  it('ignores legacy saved games while browsing as a guest', () => {
     localStorage.setItem(
       'what2pick.bracket.v1',
       JSON.stringify({
@@ -155,9 +148,53 @@ describe('App', () => {
 
     render(<App />)
 
-    expect(screen.getByText(/2 of 128 choices added/i)).toBeInTheDocument()
-    expect(within(screen.getByRole('list')).getByText('Elden Ring')).toBeInTheDocument()
-    expect(screen.getAllByLabelText(/position/i)[0]).toHaveValue('slot-1')
+    expect(screen.getByText(/0 of 128 choices added/i)).toBeInTheDocument()
+    expect(screen.queryByText('Elden Ring')).not.toBeInTheDocument()
+  })
+
+  it('persists the dark mode preference across reloads', async () => {
+    const user = userEvent.setup()
+    const { unmount } = render(<App />)
+
+    const darkModeToggle = screen.getByLabelText(/dark mode/i)
+
+    expect(darkModeToggle).toBeChecked()
+    expect(document.documentElement.dataset.theme).toBe('dark')
+
+    await user.click(darkModeToggle)
+
+    expect(darkModeToggle).not.toBeChecked()
+    expect(document.documentElement.dataset.theme).toBe('light')
+
+    unmount()
+    render(<App />)
+
+    expect(screen.getByLabelText(/dark mode/i)).not.toBeChecked()
+    expect(document.documentElement.dataset.theme).toBe('light')
+  })
+
+  it('opens a separate login screen and can switch to account creation', async () => {
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /^log in$/i }))
+
+    expect(screen.getByRole('heading', { name: /what2pick/i })).toBeInTheDocument()
+    expect(screen.getByText(/log in to save your choices and settings/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/^email$/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /create account/i }))
+
+    expect(screen.getByText(/create an account to keep your brackets synced/i)).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /^create account$/i }),
+    ).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: /^back$/i }))
+
+    expect(screen.getByText(/0 of 128 choices added/i)).toBeInTheDocument()
   })
 
   it('advances winners through a four-choice bracket and selects a champion', async () => {
@@ -194,7 +231,7 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: 'Elden Ring' })).toBeInTheDocument()
   })
 
-  it('persists a started bracket and selected champion across reloads', async () => {
+  it('does not persist a guest bracket champion across reloads', async () => {
     const user = userEvent.setup()
     const { unmount } = render(<App />)
 
@@ -218,10 +255,9 @@ describe('App', () => {
     unmount()
     render(<App />)
 
-    expect(screen.getByText(/bracket started/i)).toBeInTheDocument()
-    expect(screen.queryByLabelText(/choice name/i)).not.toBeInTheDocument()
-    expect(screen.getByText('Champion')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Elden Ring' })).toBeInTheDocument()
+    expect(screen.getByText(/0 of 128 choices added/i)).toBeInTheDocument()
+    expect(screen.queryByText('Champion')).not.toBeInTheDocument()
+    expect(screen.queryByText('Elden Ring')).not.toBeInTheDocument()
   })
 
   it('keeps the saved bracket when start over is cancelled', async () => {
@@ -272,7 +308,8 @@ describe('App', () => {
     expect(screen.getByText(/0 of 128 choices added/i)).toBeInTheDocument()
     expect(screen.queryByText('Champion')).not.toBeInTheDocument()
     expect(screen.getByText(/no choices added yet/i)).toBeInTheDocument()
-    expect(localStorage.length).toBe(0)
+    expect(localStorage.getItem('what2pick.bracket.v1')).toBeNull()
+    expect(localStorage.getItem('what2pick.settings.v1')).toBeTruthy()
 
     unmount()
     render(<App />)

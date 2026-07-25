@@ -3,8 +3,9 @@
 ## Known Requirements To Verify Or Extend
 
 - Confirm whether the current 2-to-128 bracket limit is the desired long-term cap.
-- Define login/profile requirements for the web version and future app version.
-- Decide whether profiles should use an external auth provider, a custom backend, or local-only named profiles.
+- Define detailed login/profile requirements for the web version and future app version.
+- Set up Supabase authentication and user-scoped database storage.
+- Decide whether anonymous local-only usage should remain available alongside logged-in profiles.
 
 ## Proposed Technical Follow-Up
 
@@ -15,7 +16,6 @@
 
 ## Unknown
 
-- Backend/auth provider requirements.
 - Deployment requirements.
 - Target users and visual design direction.
 - Browser/device support requirements.

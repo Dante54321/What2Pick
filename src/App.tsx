@@ -6,13 +6,17 @@ import {
   type CSSProperties,
   type FormEvent,
 } from 'react'
+import type { Session } from '@supabase/supabase-js'
 import { getReductionRoundPlan, getReductionRoundPlans } from './bracket'
 import { getImportableChoiceNames } from './importChoices'
+import { isSupabaseConfigured, supabase } from './supabaseClient'
 import './App.css'
 
 const MIN_BRACKET_ITEMS = 2
 const MAX_BRACKET_ITEMS = 128
 const STORAGE_KEY = 'what2pick.bracket.v1'
+const SETTINGS_STORAGE_KEY = 'what2pick.settings.v1'
+const USER_BRACKET_STATE_TABLE = 'user_bracket_states'
 
 type FixedBracketPosition = `slot-${number}`
 type BracketPosition = 'random' | FixedBracketPosition
@@ -24,11 +28,24 @@ type Choice = {
   randomOrder: number
 }
 
-type PersistedBracketState = {
+type BracketState = {
   choices: Choice[]
   bracketStarted: boolean
   winnerByMatchId: Record<string, string>
 }
+
+type UserBracketStateRow = {
+  choices: unknown
+  bracket_started: boolean
+  winner_by_match_id: unknown
+  settings: unknown
+}
+
+type UserSettings = {
+  darkMode: boolean
+}
+
+type AuthMode = 'login' | 'signup'
 
 type BracketEntry =
   | {
@@ -225,80 +242,104 @@ function isWinnerMap(value: unknown): value is Record<string, string> {
   )
 }
 
-function readPersistedBracketState(): PersistedBracketState {
+function readPersistedSettings(): UserSettings {
   if (typeof window === 'undefined') {
     return {
-      choices: [],
-      bracketStarted: false,
-      winnerByMatchId: {},
+      darkMode: true,
     }
   }
 
   try {
-    const storedState = window.localStorage.getItem(STORAGE_KEY)
+    const storedSettings = window.localStorage.getItem(SETTINGS_STORAGE_KEY)
 
-    if (!storedState) {
+    if (!storedSettings) {
       return {
-        choices: [],
-        bracketStarted: false,
-        winnerByMatchId: {},
+        darkMode: true,
       }
     }
 
-    const parsedState: unknown = JSON.parse(storedState)
+    const parsedSettings: unknown = JSON.parse(storedSettings)
 
-    if (!isRecord(parsedState)) {
+    if (!isRecord(parsedSettings)) {
       return {
-        choices: [],
-        bracketStarted: false,
-        winnerByMatchId: {},
+        darkMode: true,
       }
     }
-
-    const storedChoices = Array.isArray(parsedState.choices)
-      ? parsedState.choices
-      : parsedState.games
-
-    if (!Array.isArray(storedChoices)) {
-      return {
-        choices: [],
-        bracketStarted: false,
-        winnerByMatchId: {},
-      }
-    }
-
-    const choices = storedChoices.filter(isChoice).slice(0, MAX_BRACKET_ITEMS)
-    const winnerByMatchId = isWinnerMap(parsedState.winnerByMatchId)
-      ? parsedState.winnerByMatchId
-      : {}
 
     return {
-      choices,
-      bracketStarted:
-        parsedState.bracketStarted === true &&
-        choices.length >= MIN_BRACKET_ITEMS,
-      winnerByMatchId,
+      darkMode:
+        typeof parsedSettings.darkMode === 'boolean'
+          ? parsedSettings.darkMode
+          : true,
     }
   } catch {
     return {
-      choices: [],
-      bracketStarted: false,
-      winnerByMatchId: {},
+      darkMode: true,
     }
   }
 }
 
+function normalizeUserSettings(value: unknown): UserSettings {
+  if (!isRecord(value)) {
+    return {
+      darkMode: true,
+    }
+  }
+
+  return {
+    darkMode: typeof value.darkMode === 'boolean' ? value.darkMode : true,
+  }
+}
+
+function normalizeBracketState(row: UserBracketStateRow): BracketState {
+  const choices = Array.isArray(row.choices)
+    ? row.choices.filter(isChoice).slice(0, MAX_BRACKET_ITEMS)
+    : []
+  const winnerByMatchId = isWinnerMap(row.winner_by_match_id)
+    ? row.winner_by_match_id
+    : {}
+
+  return {
+    choices,
+    bracketStarted:
+      row.bracket_started === true && choices.length >= MIN_BRACKET_ITEMS,
+    winnerByMatchId,
+  }
+}
+
+function getAuthErrorMessage(errorMessage: string) {
+  const normalizedMessage = errorMessage.toLowerCase()
+
+  if (normalizedMessage.includes('rate limit')) {
+    return 'Too many email attempts. Wait a while or disable email confirmation in Supabase while developing.'
+  }
+
+  if (normalizedMessage.includes('invalid login credentials')) {
+    return 'The email or password is incorrect.'
+  }
+
+  return errorMessage
+}
+
 function App() {
-  const persistedState = useMemo(readPersistedBracketState, [])
+  const persistedSettings = useMemo(readPersistedSettings, [])
   const [choiceName, setChoiceName] = useState('')
   const [bulkChoiceText, setBulkChoiceText] = useState('')
-  const [choices, setChoices] = useState<Choice[]>(persistedState.choices)
-  const [bracketStarted, setBracketStarted] = useState(
-    persistedState.bracketStarted,
-  )
+  const [choices, setChoices] = useState<Choice[]>([])
+  const [bracketStarted, setBracketStarted] = useState(false)
   const [winnerByMatchId, setWinnerByMatchId] = useState<
     Record<string, string>
-  >(persistedState.winnerByMatchId)
+  >({})
+  const [settings, setSettings] = useState<UserSettings>(persistedSettings)
+  const [session, setSession] = useState<Session | null>(null)
+  const [userStateLoaded, setUserStateLoaded] = useState(false)
+  const [syncMessage, setSyncMessage] = useState('')
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authMessage, setAuthMessage] = useState('')
+  const [authLoading, setAuthLoading] = useState(false)
+  const [authScreenOpen, setAuthScreenOpen] = useState(false)
+  const [authMode, setAuthMode] = useState<AuthMode>('login')
   const bracketScrollbarRef = useRef<HTMLDivElement>(null)
   const bracketViewportRef = useRef<HTMLDivElement>(null)
 
@@ -383,6 +424,16 @@ function App() {
         roundIndex: bracketRounds.length - 1,
       }
     : undefined
+  const bracketSideColumnCount = Math.max(
+    leftRoundColumns.length,
+    rightRoundColumns.length,
+  )
+  const bracketSideWidthRem =
+    bracketSideColumnCount === 0
+      ? 0
+      : bracketSideColumnCount * 18 + (bracketSideColumnCount - 1)
+  const bracketArenaWidthRem =
+    bracketSideWidthRem * 2 + (finalRoundColumn ? 20 : 0) + 2.5
   const bracketColumnCount =
     leftRoundColumns.length + rightRoundColumns.length +
     (finalRoundColumn ? 1 : 0)
@@ -417,29 +468,177 @@ function App() {
     return choices.find((choice) => choice.id === choiceId)
   }
 
+  function resetBracketState() {
+    setChoiceName('')
+    setBulkChoiceText('')
+    setChoices([])
+    setBracketStarted(false)
+    setWinnerByMatchId({})
+  }
+
   useEffect(() => {
-    try {
-      if (
-        choices.length === 0 &&
-        !bracketStarted &&
-        Object.keys(winnerByMatchId).length === 0
-      ) {
+    if (!supabase) {
+      return
+    }
+
+    let isActive = true
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (isActive) {
+        setSession(data.session)
+      }
+    })
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession)
+      setAuthMessage('')
+
+      if (nextSession) {
+        setAuthScreenOpen(false)
+      }
+    })
+
+    return () => {
+      isActive = false
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!supabase || !session) {
+      resetBracketState()
+      setUserStateLoaded(false)
+      setSyncMessage('')
+
+      try {
         window.localStorage.removeItem(STORAGE_KEY)
+      } catch {
+        // Continue without legacy storage cleanup when storage is unavailable.
+      }
+
+      return
+    }
+
+    let isActive = true
+
+    async function loadUserState() {
+      setUserStateLoaded(false)
+      setSyncMessage('Loading your saved bracket...')
+
+      const { data, error } = await supabase!
+        .from(USER_BRACKET_STATE_TABLE)
+        .select('choices, bracket_started, winner_by_match_id, settings')
+        .eq('user_id', session!.user.id)
+        .maybeSingle<UserBracketStateRow>()
+
+      if (!isActive) {
         return
       }
 
+      if (error) {
+        resetBracketState()
+        setSyncMessage(
+          'Could not load your saved bracket. Check the Supabase table setup.',
+        )
+        setUserStateLoaded(true)
+        return
+      }
+
+      if (!data) {
+        resetBracketState()
+        setSyncMessage('No saved bracket yet.')
+        setUserStateLoaded(true)
+        return
+      }
+
+      const savedState = normalizeBracketState(data)
+
+      setChoiceName('')
+      setBulkChoiceText('')
+      setChoices(savedState.choices)
+      setBracketStarted(savedState.bracketStarted)
+      setWinnerByMatchId(savedState.winnerByMatchId)
+      setSettings(normalizeUserSettings(data.settings))
+      setSyncMessage('Loaded your saved bracket.')
+      setUserStateLoaded(true)
+    }
+
+    void loadUserState()
+
+    return () => {
+      isActive = false
+    }
+  }, [session])
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = settings.darkMode
+      ? 'dark'
+      : 'light'
+
+    try {
       window.localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          choices,
-          bracketStarted,
-          winnerByMatchId,
-        } satisfies PersistedBracketState),
+        SETTINGS_STORAGE_KEY,
+        JSON.stringify(settings),
       )
     } catch {
       // Continue without persistence when storage is unavailable.
     }
-  }, [bracketStarted, choices, winnerByMatchId])
+  }, [settings])
+
+  useEffect(() => {
+    if (!supabase || !session || !userStateLoaded) {
+      return
+    }
+
+    const saveTimeout = window.setTimeout(() => {
+      async function saveUserState() {
+        const { error } = await supabase!
+          .from(USER_BRACKET_STATE_TABLE)
+          .upsert(
+            {
+              user_id: session!.user.id,
+              choices,
+              bracket_started: bracketStarted,
+              winner_by_match_id: winnerByMatchId,
+              settings,
+              updated_at: new Date().toISOString(),
+            },
+            {
+              onConflict: 'user_id',
+            },
+          )
+
+        setSyncMessage(
+          error
+            ? 'Could not save your bracket. Check the Supabase table setup.'
+            : 'Saved to your account.',
+        )
+      }
+
+      void saveUserState()
+    }, 500)
+
+    return () => {
+      window.clearTimeout(saveTimeout)
+    }
+  }, [
+    bracketStarted,
+    choices,
+    session,
+    settings,
+    userStateLoaded,
+    winnerByMatchId,
+  ])
+
+  useEffect(() => {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY)
+    } catch {
+      // Continue without legacy storage cleanup when storage is unavailable.
+    }
+  }, [])
 
   useEffect(() => {
     const scrollbar = bracketScrollbarRef.current
@@ -588,6 +787,80 @@ function App() {
     setWinnerByMatchId({})
   }
 
+  function updateDarkMode(darkMode: boolean) {
+    setSettings((currentSettings) => ({
+      ...currentSettings,
+      darkMode,
+    }))
+  }
+
+  async function submitAuth(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const email = authEmail.trim()
+    const password = authPassword
+
+    if (!supabase || !email || password.length < 6) {
+      return
+    }
+
+    setAuthLoading(true)
+    setAuthMessage('')
+
+    const { error } =
+      authMode === 'login'
+        ? await supabase.auth.signInWithPassword({
+            email,
+            password,
+          })
+        : await supabase.auth.signUp({
+            email,
+            password,
+          })
+
+    setAuthLoading(false)
+
+    if (error) {
+      setAuthMessage(getAuthErrorMessage(error.message))
+      return
+    }
+
+    if (authMode === 'signup') {
+      setAuthMessage('Account created. Check your email if confirmation is required.')
+      return
+    }
+
+    setAuthMessage('Signed in.')
+  }
+
+  async function signOut() {
+    if (!supabase) {
+      return
+    }
+
+    setAuthLoading(true)
+    setAuthMessage('')
+
+    const { error } = await supabase.auth.signOut()
+
+    setAuthLoading(false)
+
+    if (error) {
+      setAuthMessage(getAuthErrorMessage(error.message))
+    }
+  }
+
+  function openAuthScreen(nextAuthMode: AuthMode) {
+    setAuthMode(nextAuthMode)
+    setAuthMessage('')
+    setAuthScreenOpen(true)
+  }
+
+  function switchAuthMode(nextAuthMode: AuthMode) {
+    setAuthMode(nextAuthMode)
+    setAuthMessage('')
+  }
+
   function syncBracketScroll(source: 'scrollbar' | 'viewport') {
     const scrollbar = bracketScrollbarRef.current
     const viewport = bracketViewportRef.current
@@ -670,31 +943,175 @@ function App() {
     )
   }
 
+  if (authScreenOpen && !session) {
+    return (
+      <main className="auth-phase">
+        <section className="auth-screen" aria-label="User account">
+          <div className="auth-screen-header">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setAuthScreenOpen(false)}
+            >
+              Back
+            </button>
+
+            <div>
+              <h1>What2Pick</h1>
+              <p>
+                {authMode === 'login'
+                  ? 'Log in to save your choices and settings.'
+                  : 'Create an account to keep your brackets synced.'}
+              </p>
+            </div>
+          </div>
+
+          <form className="auth-form" onSubmit={submitAuth}>
+            <label htmlFor="auth-email">Email</label>
+            <input
+              id="auth-email"
+              type="email"
+              placeholder="you@example.com"
+              value={authEmail}
+              onChange={(event) => setAuthEmail(event.target.value)}
+              disabled={authLoading || !isSupabaseConfigured}
+              required
+            />
+
+            <label htmlFor="auth-password">Password</label>
+            <input
+              id="auth-password"
+              type="password"
+              value={authPassword}
+              onChange={(event) => setAuthPassword(event.target.value)}
+              disabled={authLoading || !isSupabaseConfigured}
+              minLength={6}
+              required
+            />
+
+            <button
+              type="submit"
+              disabled={
+                authLoading ||
+                !isSupabaseConfigured ||
+                authEmail.trim().length === 0 ||
+                authPassword.length < 6
+              }
+            >
+              {authLoading
+                ? 'Working...'
+                : authMode === 'login'
+                  ? 'Log in'
+                  : 'Create account'}
+            </button>
+          </form>
+
+          {!isSupabaseConfigured && <p>Login is not configured.</p>}
+          {authMessage && <p role="status">{authMessage}</p>}
+
+          <div className="auth-mode-switch">
+            {authMode === 'login' ? (
+              <>
+                <span>Need an account?</span>
+                <button type="button" onClick={() => switchAuthMode('signup')}>
+                  Create account
+                </button>
+              </>
+            ) : (
+              <>
+                <span>Already have an account?</span>
+                <button type="button" onClick={() => switchAuthMode('login')}>
+                  Log in
+                </button>
+              </>
+            )}
+          </div>
+        </section>
+      </main>
+    )
+  }
+
   return (
     <main className={bracketStarted ? 'playing-phase' : 'setup-phase'}>
       <header>
-        <div className="brand-lockup">
-          <svg
-            aria-hidden="true"
-            className="brand-mark"
-            viewBox="0 0 64 64"
-          >
-            <path
-              d="M14 15h12c6 0 10 4 10 10v14c0 6 4 10 10 10h4"
-              className="brand-path brand-path-left"
-            />
-            <path
-              d="M50 15H38c-6 0-10 4-10 10v14c0 6-4 10-10 10h-4"
-              className="brand-path brand-path-right"
-            />
-            <circle cx="14" cy="15" r="5" className="brand-node" />
-            <circle cx="50" cy="15" r="5" className="brand-node" />
-            <circle cx="32" cy="32" r="6" className="brand-core" />
-            <path d="m28 32 3 3 6-7" className="brand-check" />
-          </svg>
+        <div className="top-bar">
+          <div className="brand-lockup">
+            <svg
+              aria-hidden="true"
+              className="brand-mark"
+              viewBox="0 0 64 64"
+            >
+              <path
+                d="M14 15h12c6 0 10 4 10 10v14c0 6 4 10 10 10h4"
+                className="brand-path brand-path-left"
+              />
+              <path
+                d="M50 15H38c-6 0-10 4-10 10v14c0 6-4 10-10 10h-4"
+                className="brand-path brand-path-right"
+              />
+              <circle cx="14" cy="15" r="5" className="brand-node" />
+              <circle cx="50" cy="15" r="5" className="brand-node" />
+              <circle cx="32" cy="32" r="6" className="brand-core" />
+              <path d="m28 32 3 3 6-7" className="brand-check" />
+            </svg>
 
-          <h1>What2Pick</h1>
+            <h1>What2Pick</h1>
+          </div>
+
+          <div className="top-controls">
+            <label className="theme-toggle" htmlFor="dark-mode">
+              <input
+                id="dark-mode"
+                type="checkbox"
+                checked={settings.darkMode}
+                onChange={(event) => updateDarkMode(event.target.checked)}
+              />
+              Dark mode
+            </label>
+
+            <section className="account-summary" aria-label="User account">
+              {isSupabaseConfigured ? (
+                session ? (
+                  <>
+                    <p>
+                      <span>Signed in</span>
+                      <strong>{session.user.email}</strong>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={signOut}
+                      disabled={authLoading}
+                    >
+                      Sign out
+                    </button>
+                  </>
+                ) : (
+                  <div className="account-actions">
+                    <button
+                      type="button"
+                      onClick={() => openAuthScreen('login')}
+                    >
+                      Log in
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => openAuthScreen('signup')}
+                    >
+                      Create account
+                    </button>
+                  </div>
+                )
+              ) : (
+                <p>Login is not configured.</p>
+              )}
+
+              {session && syncMessage && <p role="status">{syncMessage}</p>}
+              {authMessage && <p role="status">{authMessage}</p>}
+            </section>
+          </div>
         </div>
+
         <p>Create a bracket. Make your choice.</p>
       </header>
 
@@ -706,57 +1123,59 @@ function App() {
             least {MIN_BRACKET_ITEMS}.
           </p>
 
-          <form onSubmit={handleSubmit}>
-            <label htmlFor="choice-name">Choice name</label>
+          <div className="choice-entry-grid">
+            <form onSubmit={handleSubmit}>
+              <label htmlFor="choice-name">Choice name</label>
 
-            <input
-              id="choice-name"
-              type="text"
-              placeholder="Example: Pizza"
-              value={choiceName}
-              onChange={(event) => setChoiceName(event.target.value)}
-              disabled={bracketStarted || choices.length >= MAX_BRACKET_ITEMS}
-            />
+              <input
+                id="choice-name"
+                type="text"
+                placeholder="Example: Pizza"
+                value={choiceName}
+                onChange={(event) => setChoiceName(event.target.value)}
+                disabled={bracketStarted || choices.length >= MAX_BRACKET_ITEMS}
+              />
 
-            <button
-              type="submit"
-              disabled={bracketStarted || choices.length >= MAX_BRACKET_ITEMS}
-            >
-              Add choice
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={bracketStarted || choices.length >= MAX_BRACKET_ITEMS}
+              >
+                Add choice
+              </button>
+            </form>
 
-          <form className="bulk-choice-form" onSubmit={importBulkChoices}>
-            <label htmlFor="bulk-choice-list">Bulk choices</label>
+            <form className="bulk-choice-form" onSubmit={importBulkChoices}>
+              <label htmlFor="bulk-choice-list">Bulk choices</label>
 
-            <textarea
-              id="bulk-choice-list"
-              placeholder={'Pizza\nSushi\nTacos'}
-              value={bulkChoiceText}
-              onChange={(event) => setBulkChoiceText(event.target.value)}
-              disabled={bracketStarted || choices.length >= MAX_BRACKET_ITEMS}
-              rows={5}
-            />
+              <textarea
+                id="bulk-choice-list"
+                placeholder={'Pizza\nSushi\nTacos'}
+                value={bulkChoiceText}
+                onChange={(event) => setBulkChoiceText(event.target.value)}
+                disabled={bracketStarted || choices.length >= MAX_BRACKET_ITEMS}
+                rows={5}
+              />
 
-            <p className="import-summary">
-              {importableChoiceNames.length} ready. {availableChoiceSlots}{' '}
-              slots available.
-              {skippedChoicesCount > 0
-                ? ` ${skippedChoicesCount} will not fit.`
-                : ''}
-            </p>
+              <p className="import-summary">
+                {importableChoiceNames.length} ready. {availableChoiceSlots}{' '}
+                slots available.
+                {skippedChoicesCount > 0
+                  ? ` ${skippedChoicesCount} will not fit.`
+                  : ''}
+              </p>
 
-            <button
-              type="submit"
-              disabled={
-                bracketStarted ||
-                importableChoiceNames.length === 0 ||
-                choices.length >= MAX_BRACKET_ITEMS
-              }
-            >
-              Add list
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={
+                  bracketStarted ||
+                  importableChoiceNames.length === 0 ||
+                  choices.length >= MAX_BRACKET_ITEMS
+                }
+              >
+                Add list
+              </button>
+            </form>
+          </div>
 
           {choices.length === 0 ? (
             <p>No choices added yet.</p>
@@ -898,7 +1317,7 @@ function App() {
               <div
                 className="bracket-scrollbar-content"
                 style={{
-                  width: `${bracketColumnCount * 19 - 1}rem`,
+                  width: `${bracketArenaWidthRem}rem`,
                 }}
               />
             </div>
@@ -909,7 +1328,12 @@ function App() {
               ref={bracketViewportRef}
               onScroll={() => syncBracketScroll('viewport')}
             >
-              <div className="bracket-rounds bracket-arena">
+              <div
+                className="bracket-rounds bracket-arena"
+                style={{
+                  '--bracket-side-width': `${bracketSideWidthRem}rem`,
+                } as CSSProperties}
+              >
                 <div className="bracket-side bracket-side-left">
                   {leftRoundColumns.map((round, index) =>
                     renderRoundColumn(round, 'left', index),

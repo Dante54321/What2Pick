@@ -13,6 +13,7 @@ dist-ssr
 playwright-report
 test-results
 *.local
+.vite-dev.*
 
 # Editor directories and files
 .vscode/*

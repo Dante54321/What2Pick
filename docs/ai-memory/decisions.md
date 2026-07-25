@@ -10,4 +10,8 @@
 
 ## Product Decisions
 
-- Unknown beyond the implemented 4-item bracket behavior and the requirements listed in `project-overview.md`.
+- Decision: What2Pick should support user profiles with login.
+- Decision: User-specific choices, bracket progress, and personal configuration should be saved to the logged-in user's account, not only to browser-local storage.
+- Decision: User profiles should include personal preferences; the first confirmed preference is dark mode.
+- Decision: Use Supabase for authentication and user-scoped database storage.
+- Unknown: account recovery requirements and whether anonymous local usage remains supported.
