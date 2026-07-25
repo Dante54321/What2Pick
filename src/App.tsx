@@ -17,6 +17,8 @@ const MAX_BRACKET_ITEMS = 128
 const STORAGE_KEY = 'what2pick.bracket.v1'
 const SETTINGS_STORAGE_KEY = 'what2pick.settings.v1'
 const USER_BRACKET_STATE_TABLE = 'user_bracket_states'
+const CHOICE_TEMPLATES_TABLE = 'choice_templates'
+const SAVED_BRACKETS_TABLE = 'saved_brackets'
 
 type FixedBracketPosition = `slot-${number}`
 type BracketPosition = 'random' | FixedBracketPosition
@@ -41,11 +43,45 @@ type UserBracketStateRow = {
   settings: unknown
 }
 
+type ChoiceTemplate = {
+  id: string
+  name: string
+  choiceNames: string[]
+  updatedAt: string
+}
+
+type ChoiceTemplateRow = {
+  id: string
+  name: string
+  choice_names: unknown
+  updated_at: string
+}
+
+type SavedBracket = {
+  id: string
+  name: string
+  choices: Choice[]
+  bracketStarted: boolean
+  winnerByMatchId: Record<string, string>
+  updatedAt: string
+}
+
+type SavedBracketRow = {
+  id: string
+  name: string
+  choices: unknown
+  bracket_started: boolean
+  winner_by_match_id: unknown
+  updated_at: string
+}
+
 type UserSettings = {
   darkMode: boolean
 }
 
 type AuthMode = 'login' | 'signup'
+type TemplateSortMode = 'recent' | 'name'
+type SavedBracketSortMode = 'recent' | 'name'
 
 type BracketEntry =
   | {
@@ -184,6 +220,24 @@ function buildBracketRounds(orderedChoices: Choice[]) {
     reductionRoundPlan = getReductionRoundPlan(entries.length)
   }
 
+  if (entries.length === 3) {
+    const roundNumber = rounds.length + 1
+    const matchId = `r${roundNumber}-m1`
+
+    rounds.push({
+      id: `r${roundNumber}`,
+      name: '',
+      matches: [
+        {
+          id: matchId,
+          label: 'Match 1',
+          participants: entries,
+        },
+      ],
+    })
+    entries = [{ type: 'match', matchId }]
+  }
+
   while (entries.length > 1) {
     const roundNumber = rounds.length + 1
     const matches: BracketMatch[] = []
@@ -307,6 +361,38 @@ function normalizeBracketState(row: UserBracketStateRow): BracketState {
   }
 }
 
+function normalizeChoiceTemplate(row: ChoiceTemplateRow): ChoiceTemplate {
+  return {
+    id: row.id,
+    name: row.name,
+    choiceNames: Array.isArray(row.choice_names)
+      ? row.choice_names
+          .filter((choiceName) => typeof choiceName === 'string')
+          .slice(0, MAX_BRACKET_ITEMS)
+      : [],
+    updatedAt: row.updated_at,
+  }
+}
+
+function normalizeSavedBracket(row: SavedBracketRow): SavedBracket {
+  const choices = Array.isArray(row.choices)
+    ? row.choices.filter(isChoice).slice(0, MAX_BRACKET_ITEMS)
+    : []
+  const winnerByMatchId = isWinnerMap(row.winner_by_match_id)
+    ? row.winner_by_match_id
+    : {}
+
+  return {
+    id: row.id,
+    name: row.name,
+    choices,
+    bracketStarted:
+      row.bracket_started === true && choices.length >= MIN_BRACKET_ITEMS,
+    winnerByMatchId,
+    updatedAt: row.updated_at,
+  }
+}
+
 function getAuthErrorMessage(errorMessage: string) {
   const normalizedMessage = errorMessage.toLowerCase()
 
@@ -325,6 +411,27 @@ function App() {
   const persistedSettings = useMemo(readPersistedSettings, [])
   const [choiceName, setChoiceName] = useState('')
   const [bulkChoiceText, setBulkChoiceText] = useState('')
+  const [bulkChoiceMode, setBulkChoiceMode] = useState(false)
+  const [templateName, setTemplateName] = useState('')
+  const [choiceTemplates, setChoiceTemplates] = useState<ChoiceTemplate[]>([])
+  const [selectedTemplateId, setSelectedTemplateId] = useState('')
+  const [activeTemplateId, setActiveTemplateId] = useState('')
+  const [renameTemplateName, setRenameTemplateName] = useState('')
+  const [templateScreenOpen, setTemplateScreenOpen] = useState(false)
+  const [templateSortMode, setTemplateSortMode] =
+    useState<TemplateSortMode>('recent')
+  const [templateMessage, setTemplateMessage] = useState('')
+  const [templateLoading, setTemplateLoading] = useState(false)
+  const [savedBrackets, setSavedBrackets] = useState<SavedBracket[]>([])
+  const [selectedSavedBracketId, setSelectedSavedBracketId] = useState('')
+  const [activeSavedBracketId, setActiveSavedBracketId] = useState('')
+  const [savedBracketName, setSavedBracketName] = useState('')
+  const [bracketScreenOpen, setBracketScreenOpen] = useState(false)
+  const [savedBracketSortMode, setSavedBracketSortMode] =
+    useState<SavedBracketSortMode>('recent')
+  const [savedBracketMessage, setSavedBracketMessage] = useState('')
+  const [savedBracketLoading, setSavedBracketLoading] = useState(false)
+  const [quickSaveOpen, setQuickSaveOpen] = useState(false)
   const [choices, setChoices] = useState<Choice[]>([])
   const [bracketStarted, setBracketStarted] = useState(false)
   const [winnerByMatchId, setWinnerByMatchId] = useState<
@@ -384,8 +491,9 @@ function App() {
     const left = new Set<string>()
     const right = new Set<string>()
 
-    collectBranchMatches(finalMatch?.participants[0], left)
-    collectBranchMatches(finalMatch?.participants[1], right)
+    finalMatch?.participants.forEach((participant, index) => {
+      collectBranchMatches(participant, index % 2 === 0 ? left : right)
+    })
 
     return { left, right }
   }, [finalMatch, matchById])
@@ -463,6 +571,44 @@ function App() {
     (total, plan) => total + plan.tripleMatchCount,
     0,
   )
+  const selectedTemplate = choiceTemplates.find(
+    (choiceTemplate) => choiceTemplate.id === selectedTemplateId,
+  )
+  const activeTemplate = choiceTemplates.find(
+    (choiceTemplate) => choiceTemplate.id === activeTemplateId,
+  )
+  const sortedChoiceTemplates = useMemo(() => {
+    const templates = [...choiceTemplates]
+
+    if (templateSortMode === 'name') {
+      return templates.sort((firstTemplate, secondTemplate) =>
+        firstTemplate.name.localeCompare(secondTemplate.name),
+      )
+    }
+
+    return templates.sort((firstTemplate, secondTemplate) =>
+      secondTemplate.updatedAt.localeCompare(firstTemplate.updatedAt),
+    )
+  }, [choiceTemplates, templateSortMode])
+  const selectedSavedBracket = savedBrackets.find(
+    (savedBracket) => savedBracket.id === selectedSavedBracketId,
+  )
+  const activeSavedBracket = savedBrackets.find(
+    (savedBracket) => savedBracket.id === activeSavedBracketId,
+  )
+  const sortedSavedBrackets = useMemo(() => {
+    const brackets = [...savedBrackets]
+
+    if (savedBracketSortMode === 'name') {
+      return brackets.sort((firstBracket, secondBracket) =>
+        firstBracket.name.localeCompare(secondBracket.name),
+      )
+    }
+
+    return brackets.sort((firstBracket, secondBracket) =>
+      secondBracket.updatedAt.localeCompare(firstBracket.updatedAt),
+    )
+  }, [savedBrackets, savedBracketSortMode])
 
   function findChoice(choiceId: string | undefined) {
     return choices.find((choice) => choice.id === choiceId)
@@ -471,9 +617,31 @@ function App() {
   function resetBracketState() {
     setChoiceName('')
     setBulkChoiceText('')
+    setBulkChoiceMode(false)
     setChoices([])
     setBracketStarted(false)
     setWinnerByMatchId({})
+  }
+
+  function resetTemplateState() {
+    setTemplateName('')
+    setChoiceTemplates([])
+    setSelectedTemplateId('')
+    setActiveTemplateId('')
+    setRenameTemplateName('')
+    setTemplateScreenOpen(false)
+    setTemplateMessage('')
+    setTemplateLoading(false)
+  }
+
+  function resetSavedBracketState() {
+    setSavedBrackets([])
+    setSelectedSavedBracketId('')
+    setActiveSavedBracketId('')
+    setSavedBracketName('')
+    setBracketScreenOpen(false)
+    setSavedBracketMessage('')
+    setSavedBracketLoading(false)
   }
 
   useEffect(() => {
@@ -497,6 +665,8 @@ function App() {
 
       if (nextSession) {
         setAuthScreenOpen(false)
+      } else {
+        setTemplateScreenOpen(false)
       }
     })
 
@@ -509,6 +679,8 @@ function App() {
   useEffect(() => {
     if (!supabase || !session) {
       resetBracketState()
+      resetTemplateState()
+      resetSavedBracketState()
       setUserStateLoaded(false)
       setSyncMessage('')
 
@@ -523,15 +695,39 @@ function App() {
 
     let isActive = true
 
-    async function loadUserState() {
+    async function loadUserData() {
       setUserStateLoaded(false)
+      setTemplateLoading(true)
+      setSavedBracketLoading(true)
       setSyncMessage('Loading your saved bracket...')
 
-      const { data, error } = await supabase!
+      const bracketStateRequest = supabase!
         .from(USER_BRACKET_STATE_TABLE)
         .select('choices, bracket_started, winner_by_match_id, settings')
         .eq('user_id', session!.user.id)
         .maybeSingle<UserBracketStateRow>()
+      const templatesRequest = supabase!
+        .from(CHOICE_TEMPLATES_TABLE)
+        .select('id, name, choice_names, updated_at')
+        .eq('user_id', session!.user.id)
+        .order('updated_at', { ascending: false })
+        .returns<ChoiceTemplateRow[]>()
+      const savedBracketsRequest = supabase!
+        .from(SAVED_BRACKETS_TABLE)
+        .select('id, name, choices, bracket_started, winner_by_match_id, updated_at')
+        .eq('user_id', session!.user.id)
+        .order('updated_at', { ascending: false })
+        .returns<SavedBracketRow[]>()
+
+      const [
+        { data, error },
+        { data: templateRows, error: templatesError },
+        { data: savedBracketRows, error: savedBracketsError },
+      ] = await Promise.all([
+        bracketStateRequest,
+        templatesRequest,
+        savedBracketsRequest,
+      ])
 
       if (!isActive) {
         return
@@ -543,6 +739,8 @@ function App() {
           'Could not load your saved bracket. Check the Supabase table setup.',
         )
         setUserStateLoaded(true)
+        setTemplateLoading(false)
+        setSavedBracketLoading(false)
         return
       }
 
@@ -550,22 +748,47 @@ function App() {
         resetBracketState()
         setSyncMessage('No saved bracket yet.')
         setUserStateLoaded(true)
-        return
+      } else {
+        const savedState = normalizeBracketState(data)
+
+        setChoiceName('')
+        setBulkChoiceText('')
+        setChoices(savedState.choices)
+        setBracketStarted(savedState.bracketStarted)
+        setWinnerByMatchId(savedState.winnerByMatchId)
+        setSettings(normalizeUserSettings(data.settings))
+        setSyncMessage('Loaded your saved bracket.')
+        setUserStateLoaded(true)
       }
 
-      const savedState = normalizeBracketState(data)
+      if (templatesError) {
+        setChoiceTemplates([])
+        setTemplateMessage(
+          'Could not load templates. Check the Supabase table setup.',
+        )
+      } else {
+        setChoiceTemplates((templateRows ?? []).map(normalizeChoiceTemplate))
+        setTemplateMessage('')
+      }
 
-      setChoiceName('')
-      setBulkChoiceText('')
-      setChoices(savedState.choices)
-      setBracketStarted(savedState.bracketStarted)
-      setWinnerByMatchId(savedState.winnerByMatchId)
-      setSettings(normalizeUserSettings(data.settings))
-      setSyncMessage('Loaded your saved bracket.')
-      setUserStateLoaded(true)
+      if (savedBracketsError) {
+        setSavedBrackets([])
+        setSavedBracketMessage(
+          'Could not load saved brackets. Check the Supabase table setup.',
+        )
+      } else {
+        setSavedBrackets((savedBracketRows ?? []).map(normalizeSavedBracket))
+        setSavedBracketMessage('')
+      }
+
+      setSelectedTemplateId('')
+      setRenameTemplateName('')
+      setSelectedSavedBracketId('')
+      setTemplateLoading(false)
+      setSavedBracketLoading(false)
     }
 
-    void loadUserState()
+    void loadUserData()
 
     return () => {
       isActive = false
@@ -692,6 +915,7 @@ function App() {
 
     if (
       bracketStarted ||
+      !bulkChoiceMode ||
       availableChoiceSlots <= 0 ||
       importableChoiceNames.length === 0
     ) {
@@ -703,6 +927,453 @@ function App() {
       ...importableChoiceNames.map((name) => createChoice(name)),
     ])
     setBulkChoiceText('')
+  }
+
+  function submitChoices(event: FormEvent<HTMLFormElement>) {
+    if (bulkChoiceMode) {
+      importBulkChoices(event)
+      return
+    }
+
+    handleSubmit(event)
+  }
+
+  function toggleBulkChoiceMode(enabled: boolean) {
+    setBulkChoiceMode(enabled)
+
+    if (!enabled) {
+      setBulkChoiceText('')
+    }
+  }
+
+  async function saveChoiceTemplate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const name = templateName.trim()
+
+    if (!supabase || !session || !name || choices.length === 0) {
+      return
+    }
+
+    if (hasDuplicateTemplateName(name)) {
+      setTemplateMessage('A saved list with that name already exists.')
+      return
+    }
+
+    setTemplateLoading(true)
+    setTemplateMessage('')
+
+    const choiceNames = choices.map((choice) => choice.name)
+    const { data, error } = await supabase
+      .from(CHOICE_TEMPLATES_TABLE)
+      .insert({
+        user_id: session.user.id,
+        name,
+        choice_names: choiceNames,
+      })
+      .select('id, name, choice_names, updated_at')
+      .single<ChoiceTemplateRow>()
+
+    setTemplateLoading(false)
+
+    if (error) {
+      setTemplateMessage(
+        'Could not save template. Check the Supabase table setup.',
+      )
+      return
+    }
+
+    const savedTemplate = normalizeChoiceTemplate(data)
+
+    setChoiceTemplates([savedTemplate, ...choiceTemplates])
+    setSelectedTemplateId(savedTemplate.id)
+    setActiveTemplateId(savedTemplate.id)
+    setRenameTemplateName(savedTemplate.name)
+    setTemplateName('')
+    setTemplateMessage('Template saved.')
+  }
+
+  async function updateChoiceTemplate() {
+    const template = choiceTemplates.find(
+      (choiceTemplate) => choiceTemplate.id === selectedTemplateId,
+    )
+
+    if (!supabase || !session || !template || choices.length === 0) {
+      return
+    }
+
+    setTemplateLoading(true)
+    setTemplateMessage('')
+
+    const choiceNames = choices.map((choice) => choice.name)
+    const { data, error } = await supabase
+      .from(CHOICE_TEMPLATES_TABLE)
+      .update({
+        choice_names: choiceNames,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', template.id)
+      .eq('user_id', session.user.id)
+      .select('id, name, choice_names, updated_at')
+      .single<ChoiceTemplateRow>()
+
+    setTemplateLoading(false)
+
+    if (error) {
+      setTemplateMessage('Could not update template.')
+      return
+    }
+
+    const updatedTemplate = normalizeChoiceTemplate(data)
+
+    setChoiceTemplates(
+      choiceTemplates.map((choiceTemplate) =>
+        choiceTemplate.id === updatedTemplate.id
+          ? updatedTemplate
+          : choiceTemplate,
+      ),
+    )
+    setTemplateMessage(`Updated ${updatedTemplate.name}.`)
+  }
+
+  async function renameChoiceTemplate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const name = renameTemplateName.trim()
+
+    if (!supabase || !session || !selectedTemplate || !name) {
+      return
+    }
+
+    if (hasDuplicateTemplateName(name, selectedTemplate.id)) {
+      setTemplateMessage('A saved list with that name already exists.')
+      return
+    }
+
+    setTemplateLoading(true)
+    setTemplateMessage('')
+
+    const { data, error } = await supabase
+      .from(CHOICE_TEMPLATES_TABLE)
+      .update({
+        name,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', selectedTemplate.id)
+      .eq('user_id', session.user.id)
+      .select('id, name, choice_names, updated_at')
+      .single<ChoiceTemplateRow>()
+
+    setTemplateLoading(false)
+
+    if (error) {
+      setTemplateMessage('Could not rename template.')
+      return
+    }
+
+    const renamedTemplate = normalizeChoiceTemplate(data)
+
+    setChoiceTemplates(
+      choiceTemplates.map((choiceTemplate) =>
+        choiceTemplate.id === renamedTemplate.id
+          ? renamedTemplate
+          : choiceTemplate,
+      ),
+    )
+    setRenameTemplateName(renamedTemplate.name)
+    setTemplateMessage(`Renamed to ${renamedTemplate.name}.`)
+  }
+
+  async function deleteChoiceTemplate() {
+    if (!supabase || !session || !selectedTemplate) {
+      return
+    }
+
+    const shouldDelete = window.confirm(
+      `Delete the saved list "${selectedTemplate.name}"?`,
+    )
+
+    if (!shouldDelete) {
+      return
+    }
+
+    setTemplateLoading(true)
+    setTemplateMessage('')
+
+    const { error } = await supabase
+      .from(CHOICE_TEMPLATES_TABLE)
+      .delete()
+      .eq('id', selectedTemplate.id)
+      .eq('user_id', session.user.id)
+
+    setTemplateLoading(false)
+
+    if (error) {
+      setTemplateMessage('Could not delete template.')
+      return
+    }
+
+    setChoiceTemplates(
+      choiceTemplates.filter(
+        (choiceTemplate) => choiceTemplate.id !== selectedTemplate.id,
+      ),
+    )
+
+    if (activeTemplateId === selectedTemplate.id) {
+      setActiveTemplateId('')
+    }
+
+    setSelectedTemplateId('')
+    setRenameTemplateName('')
+    setTemplateMessage(`Deleted ${selectedTemplate.name}.`)
+  }
+
+  function loadChoiceTemplate() {
+    const template = selectedTemplate
+
+    if (!template) {
+      return
+    }
+
+    setChoices(template.choiceNames.map((name) => createChoice(name)))
+    setBracketStarted(false)
+    setWinnerByMatchId({})
+    setActiveTemplateId(template.id)
+    setTemplateMessage(`Loaded ${template.name}.`)
+  }
+
+  function selectChoiceTemplate(templateId: string) {
+    const template = choiceTemplates.find(
+      (choiceTemplate) => choiceTemplate.id === templateId,
+    )
+
+    setSelectedTemplateId(templateId)
+    setRenameTemplateName(template?.name ?? '')
+    setTemplateMessage('')
+  }
+
+  function hasDuplicateTemplateName(name: string, ignoredTemplateId?: string) {
+    const normalizedName = name.trim().toLowerCase()
+
+    return choiceTemplates.some(
+      (template) =>
+        template.id !== ignoredTemplateId &&
+        template.name.trim().toLowerCase() === normalizedName,
+    )
+  }
+
+  async function saveCurrentBracket(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const name = savedBracketName.trim()
+
+    await saveBracketSnapshot(name)
+  }
+
+  function openQuickSaveBracket() {
+    const defaultName =
+      activeSavedBracket?.name ??
+      (champion ? `${champion.name} bracket` : 'Untitled bracket')
+
+    setSavedBracketName(defaultName)
+    setSavedBracketMessage('')
+    setQuickSaveOpen(true)
+  }
+
+  function closeQuickSaveBracket() {
+    setQuickSaveOpen(false)
+    setSavedBracketName('')
+  }
+
+  async function saveBracketSnapshot(name: string) {
+    if (!supabase || !session || !name || choices.length === 0) {
+      return
+    }
+
+    const existingBracket = savedBrackets.find(
+      (savedBracket) =>
+        savedBracket.name.trim().toLowerCase() === name.toLowerCase(),
+    )
+
+    if (existingBracket) {
+      const shouldUpdate = window.confirm(
+        `A bracket named "${existingBracket.name}" already exists. Update it?`,
+      )
+
+      if (!shouldUpdate) {
+        setSavedBracketMessage('Save cancelled.')
+        return
+      }
+
+      await saveBracketSnapshotToExisting(existingBracket.id)
+      return
+    }
+
+    setSavedBracketLoading(true)
+    setSavedBracketMessage('')
+
+    const { data, error } = await supabase
+      .from(SAVED_BRACKETS_TABLE)
+      .insert({
+        user_id: session.user.id,
+        name,
+        choices,
+        bracket_started: bracketStarted,
+        winner_by_match_id: winnerByMatchId,
+      })
+      .select('id, name, choices, bracket_started, winner_by_match_id, updated_at')
+      .single<SavedBracketRow>()
+
+    setSavedBracketLoading(false)
+
+    if (error) {
+      setSavedBracketMessage(
+        'Could not save bracket. Check the Supabase table setup.',
+      )
+      return
+    }
+
+    const savedBracket = normalizeSavedBracket(data)
+
+    setSavedBrackets([savedBracket, ...savedBrackets])
+    setSelectedSavedBracketId(savedBracket.id)
+    setActiveSavedBracketId(savedBracket.id)
+    setSavedBracketName('')
+    setQuickSaveOpen(false)
+    setSavedBracketMessage('Bracket saved.')
+  }
+
+  async function saveBracketSnapshotToExisting(savedBracketId: string) {
+    if (!supabase || !session || choices.length === 0) {
+      return
+    }
+
+    setSavedBracketLoading(true)
+    setSavedBracketMessage('')
+
+    const { data, error } = await supabase
+      .from(SAVED_BRACKETS_TABLE)
+      .update({
+        choices,
+        bracket_started: bracketStarted,
+        winner_by_match_id: winnerByMatchId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', savedBracketId)
+      .eq('user_id', session.user.id)
+      .select('id, name, choices, bracket_started, winner_by_match_id, updated_at')
+      .single<SavedBracketRow>()
+
+    setSavedBracketLoading(false)
+
+    if (error) {
+      setSavedBracketMessage('Could not update saved bracket.')
+      return
+    }
+
+    const updatedBracket = normalizeSavedBracket(data)
+
+    setSavedBrackets(
+      savedBrackets.map((savedBracket) =>
+        savedBracket.id === updatedBracket.id ? updatedBracket : savedBracket,
+      ),
+    )
+    setSelectedSavedBracketId(updatedBracket.id)
+    setActiveSavedBracketId(updatedBracket.id)
+    setQuickSaveOpen(false)
+    setSavedBracketMessage(`Updated ${updatedBracket.name}.`)
+  }
+
+  async function updateSavedBracket() {
+    if (!supabase || !session || !selectedSavedBracket || choices.length === 0) {
+      return
+    }
+
+    await saveBracketSnapshotToExisting(selectedSavedBracket.id)
+  }
+
+  function loadSavedBracket() {
+    if (!selectedSavedBracket) {
+      return
+    }
+
+    setChoiceName('')
+    setBulkChoiceText('')
+    setBulkChoiceMode(false)
+    setChoices(selectedSavedBracket.choices)
+    setBracketStarted(selectedSavedBracket.bracketStarted)
+    setWinnerByMatchId(selectedSavedBracket.winnerByMatchId)
+    setActiveSavedBracketId(selectedSavedBracket.id)
+    setSavedBracketMessage(`Loaded ${selectedSavedBracket.name}.`)
+    setBracketScreenOpen(false)
+  }
+
+  async function deleteSavedBracket() {
+    if (!supabase || !session || !selectedSavedBracket) {
+      return
+    }
+
+    const shouldDelete = window.confirm(
+      `Delete the saved bracket "${selectedSavedBracket.name}"?`,
+    )
+
+    if (!shouldDelete) {
+      return
+    }
+
+    setSavedBracketLoading(true)
+    setSavedBracketMessage('')
+
+    const { error } = await supabase
+      .from(SAVED_BRACKETS_TABLE)
+      .delete()
+      .eq('id', selectedSavedBracket.id)
+      .eq('user_id', session.user.id)
+
+    setSavedBracketLoading(false)
+
+    if (error) {
+      setSavedBracketMessage('Could not delete saved bracket.')
+      return
+    }
+
+    setSavedBrackets(
+      savedBrackets.filter(
+        (savedBracket) => savedBracket.id !== selectedSavedBracket.id,
+      ),
+    )
+
+    if (activeSavedBracketId === selectedSavedBracket.id) {
+      setActiveSavedBracketId('')
+    }
+
+    setSelectedSavedBracketId('')
+    setSavedBracketMessage(`Deleted ${selectedSavedBracket.name}.`)
+  }
+
+  function selectSavedBracket(savedBracketId: string) {
+    setSelectedSavedBracketId(savedBracketId)
+    setSavedBracketMessage('')
+  }
+
+  function getSavedBracketStatus(savedBracket: SavedBracket) {
+    const savedBracketRounds = buildBracketRounds(
+      getBracketAssignments(savedBracket.choices),
+    )
+    const savedBracketFinalMatch = savedBracketRounds.at(-1)?.matches[0]
+
+    if (
+      savedBracketFinalMatch &&
+      savedBracket.winnerByMatchId[savedBracketFinalMatch.id]
+    ) {
+      return 'Completed'
+    }
+
+    if (savedBracket.bracketStarted) {
+      return 'In progress'
+    }
+
+    return 'Draft'
   }
 
   function removeChoice(choiceId: string) {
@@ -1031,6 +1702,381 @@ function App() {
     )
   }
 
+  if (templateScreenOpen && session) {
+    return (
+      <main className="templates-phase">
+        <section className="template-screen" aria-label="Saved lists">
+          <div className="template-screen-header">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setTemplateScreenOpen(false)}
+            >
+              Back
+            </button>
+
+            <div>
+              <h1>Saved lists</h1>
+              <p>
+                {activeTemplate
+                  ? `Active list: ${activeTemplate.name}`
+                  : 'Create, load, rename, update, and delete your reusable lists.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="template-screen-grid">
+            <section className="template-panel">
+              <h2>Current list</h2>
+              <p>
+                {choices.length} choice{choices.length === 1 ? '' : 's'} in the current setup.
+              </p>
+
+              <form
+                className="template-form"
+                onSubmit={saveChoiceTemplate}
+              >
+                <label htmlFor="template-name">New saved list name</label>
+                <input
+                  id="template-name"
+                  type="text"
+                  placeholder="Example: Friday restaurants"
+                  value={templateName}
+                  onChange={(event) => setTemplateName(event.target.value)}
+                  disabled={templateLoading || choices.length === 0}
+                />
+                <button
+                  type="submit"
+                  disabled={
+                    templateLoading ||
+                    templateName.trim().length === 0 ||
+                    choices.length === 0
+                  }
+                >
+                  Save new list
+                </button>
+              </form>
+
+              <button
+                type="button"
+                onClick={updateChoiceTemplate}
+                disabled={
+                  templateLoading ||
+                  !selectedTemplateId ||
+                  choices.length === 0
+                }
+              >
+                Update selected list
+              </button>
+            </section>
+
+            <section className="template-panel">
+              <div className="template-panel-header">
+                <div>
+                  <h2>Your saved lists</h2>
+                  <p>
+                    {choiceTemplates.length} saved list
+                    {choiceTemplates.length === 1 ? '' : 's'}.
+                  </p>
+                </div>
+
+                <div className="template-sort" aria-label="Sort saved lists">
+                  <button
+                    type="button"
+                    className={
+                      templateSortMode === 'recent'
+                        ? 'secondary-button selected'
+                        : 'secondary-button'
+                    }
+                    onClick={() => setTemplateSortMode('recent')}
+                  >
+                    Recent
+                  </button>
+                  <button
+                    type="button"
+                    className={
+                      templateSortMode === 'name'
+                        ? 'secondary-button selected'
+                        : 'secondary-button'
+                    }
+                    onClick={() => setTemplateSortMode('name')}
+                  >
+                    A-Z
+                  </button>
+                </div>
+              </div>
+
+              <div className="template-loader">
+                <label htmlFor="choice-template">Selected list</label>
+                <select
+                  id="choice-template"
+                  value={selectedTemplateId}
+                  onChange={(event) => selectChoiceTemplate(event.target.value)}
+                  disabled={templateLoading || choiceTemplates.length === 0}
+                >
+                  <option value="">Choose a saved list</option>
+                  {sortedChoiceTemplates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name} ({template.choiceNames.length})
+                      {template.id === activeTemplateId ? ' - active' : ''}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={loadChoiceTemplate}
+                  disabled={templateLoading || !selectedTemplateId}
+                >
+                  Load list
+                </button>
+              </div>
+
+              <form className="template-rename-form" onSubmit={renameChoiceTemplate}>
+                <label htmlFor="rename-template">Rename selected list</label>
+                <input
+                  id="rename-template"
+                  type="text"
+                  value={renameTemplateName}
+                  onChange={(event) => setRenameTemplateName(event.target.value)}
+                  disabled={templateLoading || !selectedTemplateId}
+                />
+                <button
+                  type="submit"
+                  disabled={
+                    templateLoading ||
+                    !selectedTemplateId ||
+                    renameTemplateName.trim().length === 0 ||
+                    renameTemplateName.trim() === selectedTemplate?.name
+                  }
+                >
+                  Rename
+                </button>
+                <button
+                  type="button"
+                  className="danger-button"
+                  onClick={deleteChoiceTemplate}
+                  disabled={templateLoading || !selectedTemplateId}
+                >
+                  Delete
+                </button>
+              </form>
+
+              {sortedChoiceTemplates.length > 0 ? (
+                <ul className="template-catalog">
+                  {sortedChoiceTemplates.map((template) => (
+                    <li
+                      key={template.id}
+                      className={
+                        template.id === selectedTemplateId
+                          ? 'selected'
+                          : undefined
+                      }
+                    >
+                      <button
+                        type="button"
+                        onClick={() => selectChoiceTemplate(template.id)}
+                      >
+                        <strong>{template.name}</strong>
+                        <span>
+                          {template.choiceNames.length} choice
+                          {template.choiceNames.length === 1 ? '' : 's'}
+                          {template.id === activeTemplateId ? ' - active' : ''}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No saved lists yet.</p>
+              )}
+
+              {templateMessage && <p role="status">{templateMessage}</p>}
+            </section>
+          </div>
+        </section>
+      </main>
+    )
+  }
+
+  if (bracketScreenOpen && session) {
+    return (
+      <main className="templates-phase">
+        <section className="template-screen" aria-label="My brackets">
+          <div className="template-screen-header">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setBracketScreenOpen(false)}
+            >
+              Back
+            </button>
+
+            <div>
+              <h1>My brackets</h1>
+              <p>
+                {activeSavedBracket
+                  ? `Active bracket: ${activeSavedBracket.name}`
+                  : 'Save the current bracket state or open a previous one.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="template-screen-grid">
+            <section className="template-panel">
+              <h2>Current bracket</h2>
+              <p>
+                {choices.length} choice{choices.length === 1 ? '' : 's'}.
+                {bracketStarted ? ' Bracket started.' : ' Setup draft.'}
+              </p>
+
+              <form className="template-form" onSubmit={saveCurrentBracket}>
+                <label htmlFor="saved-bracket-name">Bracket name</label>
+                <input
+                  id="saved-bracket-name"
+                  type="text"
+                  placeholder="Example: Best restaurants"
+                  value={savedBracketName}
+                  onChange={(event) => setSavedBracketName(event.target.value)}
+                  disabled={savedBracketLoading || choices.length === 0}
+                />
+                <button
+                  type="submit"
+                  disabled={
+                    savedBracketLoading ||
+                    savedBracketName.trim().length === 0 ||
+                    choices.length === 0
+                  }
+                >
+                  Save bracket
+                </button>
+              </form>
+
+              <button
+                type="button"
+                onClick={updateSavedBracket}
+                disabled={
+                  savedBracketLoading ||
+                  !selectedSavedBracketId ||
+                  choices.length === 0
+                }
+              >
+                Update selected bracket
+              </button>
+            </section>
+
+            <section className="template-panel">
+              <div className="template-panel-header">
+                <div>
+                  <h2>Saved brackets</h2>
+                  <p>
+                    {savedBrackets.length} bracket
+                    {savedBrackets.length === 1 ? '' : 's'} saved.
+                  </p>
+                </div>
+
+                <div className="template-sort" aria-label="Sort saved brackets">
+                  <button
+                    type="button"
+                    className={
+                      savedBracketSortMode === 'recent'
+                        ? 'secondary-button selected'
+                        : 'secondary-button'
+                    }
+                    onClick={() => setSavedBracketSortMode('recent')}
+                  >
+                    Recent
+                  </button>
+                  <button
+                    type="button"
+                    className={
+                      savedBracketSortMode === 'name'
+                        ? 'secondary-button selected'
+                        : 'secondary-button'
+                    }
+                    onClick={() => setSavedBracketSortMode('name')}
+                  >
+                    A-Z
+                  </button>
+                </div>
+              </div>
+
+              <div className="template-loader">
+                <label htmlFor="saved-bracket">Selected bracket</label>
+                <select
+                  id="saved-bracket"
+                  value={selectedSavedBracketId}
+                  onChange={(event) => selectSavedBracket(event.target.value)}
+                  disabled={savedBracketLoading || savedBrackets.length === 0}
+                >
+                  <option value="">Choose a saved bracket</option>
+                  {sortedSavedBrackets.map((savedBracket) => (
+                    <option key={savedBracket.id} value={savedBracket.id}>
+                      {savedBracket.name} ({getSavedBracketStatus(savedBracket)})
+                      {savedBracket.id === activeSavedBracketId
+                        ? ' - active'
+                        : ''}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={loadSavedBracket}
+                  disabled={savedBracketLoading || !selectedSavedBracketId}
+                >
+                  Load bracket
+                </button>
+                <button
+                  type="button"
+                  className="danger-button"
+                  onClick={deleteSavedBracket}
+                  disabled={savedBracketLoading || !selectedSavedBracketId}
+                >
+                  Delete
+                </button>
+              </div>
+
+              {sortedSavedBrackets.length > 0 ? (
+                <ul className="template-catalog">
+                  {sortedSavedBrackets.map((savedBracket) => (
+                    <li
+                      key={savedBracket.id}
+                      className={
+                        savedBracket.id === selectedSavedBracketId
+                          ? 'selected'
+                          : undefined
+                      }
+                    >
+                      <button
+                        type="button"
+                        onClick={() => selectSavedBracket(savedBracket.id)}
+                      >
+                        <strong>{savedBracket.name}</strong>
+                        <span>
+                          {savedBracket.choices.length} choice
+                          {savedBracket.choices.length === 1 ? '' : 's'} -{' '}
+                          {getSavedBracketStatus(savedBracket)}
+                          {savedBracket.id === activeSavedBracketId
+                            ? ' - active'
+                            : ''}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No saved brackets yet.</p>
+              )}
+
+              {savedBracketMessage && (
+                <p role="status">{savedBracketMessage}</p>
+              )}
+            </section>
+          </div>
+        </section>
+      </main>
+    )
+  }
+
   return (
     <main className={bracketStarted ? 'playing-phase' : 'setup-phase'}>
       <header>
@@ -1124,55 +2170,73 @@ function App() {
           </p>
 
           <div className="choice-entry-grid">
-            <form onSubmit={handleSubmit}>
-              <label htmlFor="choice-name">Choice name</label>
+            <form
+              className={bulkChoiceMode ? 'choice-entry-form bulk-mode' : 'choice-entry-form'}
+              onSubmit={submitChoices}
+            >
+              <div className="choice-entry-header">
+                <label htmlFor="choice-entry">
+                  {bulkChoiceMode ? 'Multiple choices' : 'Choice name'}
+                </label>
+                <label className="bulk-mode-toggle" htmlFor="bulk-choice-mode">
+                  <input
+                    id="bulk-choice-mode"
+                    type="checkbox"
+                    checked={bulkChoiceMode}
+                    onChange={(event) =>
+                      toggleBulkChoiceMode(event.target.checked)
+                    }
+                    disabled={
+                      bracketStarted || choices.length >= MAX_BRACKET_ITEMS
+                    }
+                  />
+                  Multiple
+                </label>
+              </div>
 
-              <input
-                id="choice-name"
-                type="text"
-                placeholder="Example: Pizza"
-                value={choiceName}
-                onChange={(event) => setChoiceName(event.target.value)}
-                disabled={bracketStarted || choices.length >= MAX_BRACKET_ITEMS}
-              />
+              {bulkChoiceMode ? (
+                <>
+                  <textarea
+                    id="choice-entry"
+                    placeholder={'Pizza\nSushi\nTacos'}
+                    value={bulkChoiceText}
+                    onChange={(event) => setBulkChoiceText(event.target.value)}
+                    disabled={
+                      bracketStarted || choices.length >= MAX_BRACKET_ITEMS
+                    }
+                    rows={5}
+                  />
 
-              <button
-                type="submit"
-                disabled={bracketStarted || choices.length >= MAX_BRACKET_ITEMS}
-              >
-                Add choice
-              </button>
-            </form>
-
-            <form className="bulk-choice-form" onSubmit={importBulkChoices}>
-              <label htmlFor="bulk-choice-list">Bulk choices</label>
-
-              <textarea
-                id="bulk-choice-list"
-                placeholder={'Pizza\nSushi\nTacos'}
-                value={bulkChoiceText}
-                onChange={(event) => setBulkChoiceText(event.target.value)}
-                disabled={bracketStarted || choices.length >= MAX_BRACKET_ITEMS}
-                rows={5}
-              />
-
-              <p className="import-summary">
-                {importableChoiceNames.length} ready. {availableChoiceSlots}{' '}
-                slots available.
-                {skippedChoicesCount > 0
-                  ? ` ${skippedChoicesCount} will not fit.`
-                  : ''}
-              </p>
+                  <p className="import-summary">
+                    {importableChoiceNames.length} ready. {availableChoiceSlots}{' '}
+                    slots available.
+                    {skippedChoicesCount > 0
+                      ? ` ${skippedChoicesCount} will not fit.`
+                      : ''}
+                  </p>
+                </>
+              ) : (
+                <input
+                  id="choice-entry"
+                  type="text"
+                  placeholder="Example: Pizza"
+                  value={choiceName}
+                  onChange={(event) => setChoiceName(event.target.value)}
+                  disabled={
+                    bracketStarted || choices.length >= MAX_BRACKET_ITEMS
+                  }
+                />
+              )}
 
               <button
                 type="submit"
                 disabled={
                   bracketStarted ||
-                  importableChoiceNames.length === 0 ||
-                  choices.length >= MAX_BRACKET_ITEMS
+                  choices.length >= MAX_BRACKET_ITEMS ||
+                  (bulkChoiceMode && importableChoiceNames.length === 0)
                 }
               >
-                Add list
+                {bulkChoiceMode ? 'Add list' : 'Add choice'}
               </button>
             </form>
           </div>
@@ -1233,7 +2297,66 @@ function App() {
             </ul>
           )}
 
+          {session && (
+            <section className="quick-list-panel" aria-label="Active saved list">
+              <div className="quick-list-summary">
+                <span>Active saved list</span>
+                <strong>{activeTemplate?.name ?? 'None selected'}</strong>
+              </div>
+
+              <select
+                aria-label="Saved list"
+                value={selectedTemplateId}
+                onChange={(event) => selectChoiceTemplate(event.target.value)}
+                disabled={templateLoading || choiceTemplates.length === 0}
+              >
+                <option value="">Choose a saved list</option>
+                {sortedChoiceTemplates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name} ({template.choiceNames.length})
+                    {template.id === activeTemplateId ? ' - active' : ''}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={loadChoiceTemplate}
+                disabled={templateLoading || !selectedTemplateId}
+              >
+                Load
+              </button>
+              <button
+                type="button"
+                onClick={updateChoiceTemplate}
+                disabled={
+                  templateLoading ||
+                  !selectedTemplateId ||
+                  choices.length === 0
+                }
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setTemplateScreenOpen(true)}
+              >
+                Edit lists
+              </button>
+            </section>
+          )}
+
           <div className="setup-actions">
+            {session && (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setBracketScreenOpen(true)}
+              >
+                My brackets
+              </button>
+            )}
             <button
               type="button"
               onClick={shuffleRandomChoices}
@@ -1362,6 +2485,59 @@ function App() {
               <div className="champion-result" role="status">
                 <p>Champion</p>
                 <h3>{champion.name}</h3>
+              </div>
+            )}
+
+            {session && (
+              <div className="bracket-panel-footer">
+                {savedBracketMessage && (
+                  <p role="status">{savedBracketMessage}</p>
+                )}
+                {quickSaveOpen ? (
+                  <form
+                    className="quick-save-bracket-form"
+                    onSubmit={saveCurrentBracket}
+                  >
+                    <label htmlFor="quick-saved-bracket-name">
+                      Bracket name
+                    </label>
+                    <input
+                      id="quick-saved-bracket-name"
+                      type="text"
+                      value={savedBracketName}
+                      onChange={(event) =>
+                        setSavedBracketName(event.target.value)
+                      }
+                      disabled={savedBracketLoading}
+                    />
+                    <button
+                      type="submit"
+                      disabled={
+                        savedBracketLoading ||
+                        savedBracketName.trim().length === 0
+                      }
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={closeQuickSaveBracket}
+                      disabled={savedBracketLoading}
+                    >
+                      Cancel
+                    </button>
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={openQuickSaveBracket}
+                    disabled={savedBracketLoading || choices.length === 0}
+                  >
+                    Save bracket
+                  </button>
+                )}
               </div>
             )}
           </>

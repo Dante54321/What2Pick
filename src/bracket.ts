@@ -8,11 +8,15 @@ export function isPowerOfTwo(value: number) {
   return value > 0 && (value & (value - 1)) === 0
 }
 
+function isTerminalBracketSize(value: number) {
+  return value === 3 || isPowerOfTwo(value)
+}
+
 function canReachPowerOfTwoWithoutByes(
   itemCount: number,
   memo = new Map<number, boolean>(),
 ): boolean {
-  if (isPowerOfTwo(itemCount)) {
+  if (isTerminalBracketSize(itemCount)) {
     return true
   }
 
@@ -41,7 +45,7 @@ export function getReductionRoundPlan(itemCount: number) {
     return null
   }
 
-  if (isPowerOfTwo(itemCount)) {
+  if (isTerminalBracketSize(itemCount)) {
     return null
   }
 
@@ -65,11 +69,11 @@ export function getReductionRoundPlan(itemCount: number) {
   }
 
   return reachablePlans.sort((firstPlan, secondPlan) => {
-    const firstIsPowerOfTwo = isPowerOfTwo(firstPlan.targetSize)
-    const secondIsPowerOfTwo = isPowerOfTwo(secondPlan.targetSize)
+    const firstIsTerminal = isTerminalBracketSize(firstPlan.targetSize)
+    const secondIsTerminal = isTerminalBracketSize(secondPlan.targetSize)
 
-    if (firstIsPowerOfTwo !== secondIsPowerOfTwo) {
-      return firstIsPowerOfTwo ? -1 : 1
+    if (firstIsTerminal !== secondIsTerminal) {
+      return firstIsTerminal ? -1 : 1
     }
 
     if (firstPlan.tripleMatchCount !== secondPlan.tripleMatchCount) {
@@ -84,7 +88,7 @@ export function getReductionRoundPlans(itemCount: number) {
   const plans: ReductionRoundPlan[] = []
   let currentItemCount = itemCount
 
-  while (currentItemCount >= 2 && !isPowerOfTwo(currentItemCount)) {
+  while (currentItemCount >= 2 && !isTerminalBracketSize(currentItemCount)) {
     const plan = getReductionRoundPlan(currentItemCount)
 
     if (!plan) {

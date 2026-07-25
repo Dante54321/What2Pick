@@ -193,6 +193,12 @@ main>header p {
   background: #334155;
 }
 
+.secondary-button.selected {
+  color: #082f49;
+  background: #7dd3fc;
+  border-color: #38bdf8;
+}
+
 .auth-phase {
   width: min(640px, 100%);
   grid-template-columns: 1fr;
@@ -200,7 +206,17 @@ main>header p {
   min-height: 100vh;
 }
 
+.templates-phase {
+  width: min(1280px, 100%);
+  grid-template-columns: 1fr;
+}
+
 .auth-screen {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.template-screen {
   display: grid;
   gap: 1.25rem;
 }
@@ -210,18 +226,36 @@ main>header p {
   gap: 1rem;
 }
 
-.auth-screen-header .secondary-button {
+.template-screen-header,
+.template-panel-header {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.auth-screen-header .secondary-button,
+.template-screen-header .secondary-button {
   justify-self: start;
 }
 
-.auth-screen-header h1 {
+.auth-screen-header h1,
+.template-screen-header h1 {
   font-size: clamp(2.25rem, 8vw, 3.5rem);
 }
 
 .auth-screen-header p,
+.template-screen-header p,
 .auth-screen>p {
   margin: 0;
   color: #aeb9cc;
+}
+
+.template-screen-grid {
+  display: grid;
+  grid-template-columns: minmax(20rem, 0.8fr) minmax(24rem, 1.2fr);
+  gap: 1rem;
+  align-items: start;
 }
 
 .auth-form {
@@ -281,6 +315,42 @@ main.playing-phase .bracket-panel {
   color: #9da9bc;
 }
 
+.bracket-panel-footer {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.bracket-panel-footer p {
+  margin: 0;
+  color: #fde68a;
+  font-size: 0.88rem;
+}
+
+.bracket-panel-footer button {
+  flex: 0 0 auto;
+}
+
+.quick-save-bracket-form {
+  display: grid;
+  grid-template-columns: minmax(12rem, 18rem) auto auto;
+  gap: 0.55rem;
+  align-items: end;
+  margin: 0;
+}
+
+.quick-save-bracket-form label {
+  grid-column: 1 / -1;
+  color: #cbd5e1;
+  font-size: 0.8rem;
+}
+
+.quick-save-bracket-form input {
+  padding: 0.6rem 0.7rem;
+}
+
 .bracket-panel-header button,
 .bracket-panel-actions {
   flex: 0 0 auto;
@@ -304,7 +374,7 @@ section>p {
 
 .choice-entry-grid {
   display: grid;
-  grid-template-columns: minmax(18rem, 0.8fr) minmax(20rem, 1.2fr);
+  grid-template-columns: minmax(18rem, 42rem);
   gap: 1.25rem;
   align-items: start;
   margin: 1.5rem 0;
@@ -321,11 +391,41 @@ form {
   margin: 0;
 }
 
+.choice-entry-form.bulk-mode {
+  grid-template-columns: minmax(0, 1fr) auto;
+  width: min(100%, 56rem);
+}
+
+.choice-entry-header {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
 form label {
   grid-column: 1 / -1;
   color: #cbd5e1;
   font-size: 0.9rem;
   font-weight: 600;
+}
+
+.bulk-mode-toggle {
+  display: inline-flex;
+  grid-column: auto;
+  gap: 0.45rem;
+  align-items: center;
+  color: #cbd5e1;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.bulk-mode-toggle input {
+  width: 1rem;
+  height: 1rem;
+  min-width: 1rem;
+  accent-color: #14b8a6;
 }
 
 input,
@@ -405,10 +505,6 @@ button:disabled {
   background: #b91c1c;
 }
 
-.bulk-choice-form {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
 .import-summary {
   align-self: center;
   margin: 0;
@@ -471,6 +567,140 @@ button:disabled {
 
 .choice-list li button:hover:not(:disabled) {
   background: #7f1d1d;
+}
+
+.quick-list-panel {
+  display: grid;
+  grid-template-columns: minmax(11rem, auto) minmax(13rem, 1fr) auto auto auto;
+  gap: 0.65rem;
+  align-items: center;
+  margin-top: 1rem;
+  padding: 0.8rem;
+  background: rgba(12, 18, 32, 0.62);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 0.5rem;
+}
+
+.quick-list-summary {
+  min-width: 0;
+}
+
+.quick-list-summary span {
+  display: block;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.quick-list-summary strong {
+  display: block;
+  overflow: hidden;
+  color: #f8fafc;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quick-list-panel select {
+  min-width: 0;
+  padding: 0.65rem;
+}
+
+.quick-list-panel button {
+  min-height: 2.65rem;
+}
+
+.template-panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(12, 18, 32, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 0.5rem;
+}
+
+.template-panel h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.template-panel p {
+  margin: 0.25rem 0 0;
+  color: #9da9bc;
+}
+
+.template-sort {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.template-sort button {
+  padding: 0.45rem 0.7rem;
+}
+
+.template-form,
+.template-loader,
+.template-rename-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.65rem;
+  margin: 0;
+}
+
+.template-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.template-loader label,
+.template-rename-form label {
+  grid-column: 1 / -1;
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.template-loader select {
+  min-width: 0;
+  padding: 0.65rem;
+}
+
+.template-rename-form input {
+  min-width: 0;
+}
+
+.template-catalog {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.template-catalog li button {
+  width: 100%;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.8rem;
+  color: #e5e7eb;
+  background: #0c1220;
+  border: 1px solid #293348;
+  text-align: left;
+}
+
+.template-catalog li.selected button {
+  background: rgba(20, 184, 166, 0.14);
+  border-color: #14b8a6;
+}
+
+.template-catalog strong,
+.template-catalog span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.template-catalog span {
+  color: #94a3b8;
+  font-size: 0.85rem;
 }
 
 /* Bracket */
@@ -715,6 +945,25 @@ button:disabled {
   .choice-entry-grid {
     grid-template-columns: 1fr;
   }
+
+  .quick-list-panel {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .quick-list-summary,
+  .quick-list-panel select {
+    grid-column: 1 / -1;
+  }
+
+  .template-screen-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .template-screen-header,
+  .template-panel-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 
 @media (min-width: 900px) {
@@ -755,6 +1004,12 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  .template-form,
+  .template-loader,
+  .template-rename-form {
+    grid-template-columns: 1fr;
+  }
+
   .account-actions {
     flex-wrap: wrap;
   }
@@ -762,6 +1017,15 @@ button:disabled {
   .auth-mode-switch {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .template-sort {
+    flex-wrap: wrap;
+  }
+
+  .quick-save-bracket-form {
+    width: 100%;
+    grid-template-columns: 1fr;
   }
 
   form label {
@@ -824,6 +1088,8 @@ button:disabled {
 }
 
 :root[data-theme="light"] .theme-toggle,
+:root[data-theme="light"] .bulk-mode-toggle,
+:root[data-theme="light"] .quick-save-bracket-form label,
 :root[data-theme="light"] form label {
   color: #334155;
 }
@@ -835,6 +1101,7 @@ button:disabled {
 
 :root[data-theme="light"] .account-summary p,
 :root[data-theme="light"] .auth-screen-header p,
+:root[data-theme="light"] .template-screen-header p,
 :root[data-theme="light"] .auth-screen>p,
 :root[data-theme="light"] .auth-mode-switch {
   color: #475569;
@@ -879,14 +1146,42 @@ button:disabled {
 :root[data-theme="light"] textarea,
 :root[data-theme="light"] select,
 :root[data-theme="light"] .choice-list li,
+:root[data-theme="light"] .quick-list-panel,
+:root[data-theme="light"] .template-panel,
+:root[data-theme="light"] .template-catalog li button,
 :root[data-theme="light"] .bracket-choice {
   color: #172033;
   background: #f8fafc;
   border-color: #cbd5e1;
 }
 
+:root[data-theme="light"] .template-panel p {
+  color: #526174;
+}
+
 :root[data-theme="light"] .choice-list li span {
   color: #172033;
+}
+
+:root[data-theme="light"] .quick-list-summary span {
+  color: #64748b;
+}
+
+:root[data-theme="light"] .quick-list-summary strong {
+  color: #172033;
+}
+
+:root[data-theme="light"] .template-catalog li.selected button {
+  background: #ccfbf1;
+  border-color: #14b8a6;
+}
+
+:root[data-theme="light"] .template-catalog strong {
+  color: #172033;
+}
+
+:root[data-theme="light"] .template-catalog span {
+  color: #64748b;
 }
 
 :root[data-theme="light"] .bracket-round h3 {

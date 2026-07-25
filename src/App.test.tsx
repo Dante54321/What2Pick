@@ -20,7 +20,7 @@ afterEach(() => {
 async function addChoice(name: string) {
   const user = userEvent.setup()
 
-  await user.type(screen.getByLabelText(/choice name/i), name)
+  await user.type(screen.getByLabelText(/^choice name$/i), name)
   await user.click(screen.getByRole('button', { name: /add choice/i }))
 }
 
@@ -80,7 +80,9 @@ describe('App', () => {
 
     render(<App />)
 
-    fireEvent.change(screen.getByLabelText(/bulk choices/i), {
+    await user.click(screen.getByLabelText(/multiple/i))
+
+    fireEvent.change(screen.getByLabelText(/^multiple choices$/i), {
       target: { value: 'Pizza\n\nSushi\n  Tacos  ' },
     })
 
@@ -94,7 +96,7 @@ describe('App', () => {
     expect(within(list).getByText('Pizza')).toBeInTheDocument()
     expect(within(list).getByText('Sushi')).toBeInTheDocument()
     expect(within(list).getByText('Tacos')).toBeInTheDocument()
-    expect(screen.getByLabelText(/bulk choices/i)).toHaveValue('')
+    expect(screen.getByLabelText(/^multiple choices$/i)).toHaveValue('')
   })
 
   it('limits bulk imports to the remaining choice slots', () => {
@@ -380,7 +382,79 @@ describe('App', () => {
     ).toBeInTheDocument()
   })
 
+  it('builds a three-way final after seven choices reduce to three winners', async () => {
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    await addChoices([
+      'Elden Ring',
+      'Hades',
+      'Celeste',
+      'Balatro',
+      'Inside',
+      'Portal',
+      'Tunic',
+    ])
+
+    const positionSelects = screen.getAllByLabelText(/position/i)
+
+    for (let index = 0; index < positionSelects.length; index += 1) {
+      await user.selectOptions(positionSelects[index], `slot-${index + 1}`)
+    }
+
+    expect(
+      screen.getByText(
+        /reducing over 1 round with 2 two-player matches and 1 three-way match/i,
+      ),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /start bracket/i }))
+
+    const finalSection = screen
+      .getByRole('heading', { name: /final/i })
+      .closest('section')
+
+    expect(finalSection).not.toBeNull()
+    expect(
+      within(finalSection as HTMLElement).getAllByRole('button'),
+    ).toHaveLength(3)
+
+    await user.click(screen.getByRole('button', { name: /pick 1:\s*elden ring/i }))
+    await user.click(screen.getByRole('button', { name: /pick 1:\s*celeste/i }))
+    await user.click(screen.getByRole('button', { name: /pick 1:\s*inside/i }))
+
+    expect(
+      within(finalSection as HTMLElement).getByRole('button', {
+        name: /pick 1:\s*elden ring/i,
+      }),
+    ).toBeEnabled()
+    expect(
+      within(finalSection as HTMLElement).getByRole('button', {
+        name: /pick 2:\s*celeste/i,
+      }),
+    ).toBeEnabled()
+    expect(
+      within(finalSection as HTMLElement).getByRole('button', {
+        name: /pick 3:\s*inside/i,
+      }),
+    ).toBeEnabled()
+  })
+
   it('plans repeated reduction rounds without automatic advances', () => {
+    expect(getReductionRoundPlan(7)).toEqual({
+      targetSize: 3,
+      pairMatchCount: 2,
+      tripleMatchCount: 1,
+    })
+    expect(getReductionRoundPlans(7)).toEqual([
+      {
+        targetSize: 3,
+        pairMatchCount: 2,
+        tripleMatchCount: 1,
+      },
+    ])
+
     expect(getReductionRoundPlan(9)).toEqual({
       targetSize: 4,
       pairMatchCount: 3,

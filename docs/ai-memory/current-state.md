@@ -31,6 +31,8 @@ Last updated: 2026-07-25
 - Populate later-round choices from earlier winners.
 - Select and display a champion from the final match.
 - Persist the choice list, bracket positions, started phase, selected winners, champion, and dark mode preference to Supabase only when a user is logged in.
+- Logged-in users can save reusable choice-list templates and load a saved template into the current setup; loading a template resets current bracket progress.
+- Logged-in users can save named bracket snapshots and reopen them from a `My brackets` screen.
 - Guest users can use the bracket locally during the current session, but bracket/list/progress state is not persisted after reload or logout.
 - Persist a user preference for dark mode locally; this should move to user-scoped storage after login/profile support is implemented.
 - Use generic `choices` language in the UI and app state; legacy saved `games` storage is still read for compatibility.
@@ -110,6 +112,40 @@ Last updated: 2026-07-25
 - Added stable minimum choice row height to reduce visible layout shifting as choices are added.
 - Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 - Adjusted the bracket arena to reserve equal left/right side widths around the final round so the final stays aligned with the center of the viewport when possible.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Extended `docs/supabase-schema.sql` with a `choice_templates` table and per-user RLS policies.
+- Added a `Saved lists` setup panel for logged-in users to save the current choices as a named template and load saved templates.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Made `docs/supabase-schema.sql` rerunnable by dropping existing RLS policies before recreating them.
+- Added an `Update list` action so logged-in users can overwrite the selected saved template with the current choices.
+- Renamed the template creation action to `Save new list` to distinguish creating from updating.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Completed initial template CRUD by adding selected-template rename, confirmed delete, active-template display, and duplicate-name prevention.
+- Added a Supabase unique index on `(user_id, lower(name))` for template names.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Moved saved-list management out of the main setup view into a separate `Saved lists` screen opened by a compact `Edit saved lists` button.
+- Added saved-list sorting controls for recent and A-Z ordering in the dedicated management screen.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Added a compact main-setup saved-list strip showing the active list with quick `Load`, `Save`, and `Edit lists` actions while keeping full CRUD in the dedicated screen.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Replaced the always-visible bulk choice form with a `Multiple` checkbox mode; the same choice entry field switches between a single-line input and a multiline textarea.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Extended `docs/supabase-schema.sql` with a `saved_brackets` table, per-user RLS policies, and a unique per-user saved-bracket name index.
+- Added a `My brackets` screen where logged-in users can save the current bracket with a name, update a selected saved bracket, load a saved bracket, delete a saved bracket, and sort by recent or A-Z.
+- Added `My brackets` actions in setup and started-bracket phases.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Added a primary `Save bracket` action near the bracket panel that prompts for a bracket name and saves the current state without navigating to `My brackets`.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Moved the quick `Save bracket` action to a lower-right footer area inside the bracket panel and styled it as secondary so it is available but less visually dominant.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Removed the duplicate `My brackets` action from the bracket panel header; the setup-level access remains.
+- Verified `npm.cmd run test`, `npm.cmd run build`, and `npm.cmd run lint` pass.
+- Improved quick `Save bracket` behavior so duplicate names prompt to update the existing saved bracket and footer status messages appear next to the save action.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Replaced the native browser prompt for quick bracket saving with an inline footer form so entering the bracket name is reliable and visible.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Changed bracket planning so 3 remaining participants is treated as a valid terminal final, not another reduction target.
+- Fixed the 7-choice bracket path to create 2 two-player matches and 1 three-way opening match, then a single three-way final.
 - Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 
 ## Initial Memory Setup Notes
