@@ -159,6 +159,13 @@ Last updated: 2026-07-26
 - Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 - Compacted choice-list rows so each choice displays on one line with a small position selector and a red cross remove button.
 - Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Added a mode-selection home screen before the bracket with Individual mode, Online mode, Settings, and account login/create actions.
+- The existing bracket workflow now lives under Individual mode.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Implemented an MVP Online mode with Supabase-backed rooms, join codes, participants, shared choices, bracket start, match voting, automatic winner advancement, random tied-vote resolution after all participants vote, and polling refresh.
+- Extended `docs/supabase-schema.sql` with an `online_rooms` table and permissive MVP RLS policies for public room creation/read/update.
+- Online mode still needs real multi-device Supabase validation after running the updated schema.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 
 ## Initial Memory Setup Notes
 

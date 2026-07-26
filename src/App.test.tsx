@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { getReductionRoundPlan, getReductionRoundPlans } from './bracket'
 import { getImportableChoiceNames } from './importChoices'
+import { getOnlineMatchWinnerFromVotes } from './onlineVoting'
 
 afterEach(() => {
   cleanup()
@@ -17,9 +18,21 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+async function openIndividualMode() {
+  const user = userEvent.setup()
+  const individualButton = screen.queryByRole('button', {
+    name: /individual mode/i,
+  })
+
+  if (individualButton) {
+    await user.click(individualButton)
+  }
+}
+
 async function addChoice(name: string) {
   const user = userEvent.setup()
 
+  await openIndividualMode()
   await user.type(screen.getByLabelText(/^choice name$/i), name)
   await user.click(screen.getByRole('button', { name: /add choice/i }))
 }
@@ -35,6 +48,7 @@ describe('App', () => {
     const user = userEvent.setup()
 
     render(<App />)
+    await openIndividualMode()
 
     const startButton = screen.getByRole('button', { name: /start bracket/i })
 
@@ -60,6 +74,7 @@ describe('App', () => {
     const user = userEvent.setup()
 
     render(<App />)
+    await openIndividualMode()
 
     await addChoices(['Elden Ring', 'Hades'])
 
@@ -79,6 +94,7 @@ describe('App', () => {
     const user = userEvent.setup()
 
     render(<App />)
+    await openIndividualMode()
 
     await user.click(screen.getByLabelText(/multiple/i))
 
@@ -109,6 +125,7 @@ describe('App', () => {
   it('does not persist guest choices across reloads', async () => {
     const user = userEvent.setup()
     const { unmount } = render(<App />)
+    await openIndividualMode()
 
     await addChoices(['Elden Ring', 'Hades'])
 
@@ -119,13 +136,14 @@ describe('App', () => {
 
     unmount()
     render(<App />)
+    await openIndividualMode()
 
     expect(screen.getByText(/0 of 128 choices added/i)).toBeInTheDocument()
     expect(screen.queryByText('Elden Ring')).not.toBeInTheDocument()
     expect(screen.queryByText('Hades')).not.toBeInTheDocument()
   })
 
-  it('ignores legacy saved games while browsing as a guest', () => {
+  it('ignores legacy saved games while browsing as a guest', async () => {
     localStorage.setItem(
       'what2pick.bracket.v1',
       JSON.stringify({
@@ -149,6 +167,7 @@ describe('App', () => {
     )
 
     render(<App />)
+    await openIndividualMode()
 
     expect(screen.getByText(/0 of 128 choices added/i)).toBeInTheDocument()
     expect(screen.queryByText('Elden Ring')).not.toBeInTheDocument()
@@ -157,6 +176,7 @@ describe('App', () => {
   it('persists the guest dark mode preference across reloads', async () => {
     const user = userEvent.setup()
     const { unmount } = render(<App />)
+    await user.click(screen.getByRole('button', { name: /settings/i }))
 
     const darkModeToggle = screen.getByLabelText(/dark mode/i)
 
@@ -170,6 +190,7 @@ describe('App', () => {
 
     unmount()
     render(<App />)
+    await user.click(screen.getByRole('button', { name: /settings/i }))
 
     expect(screen.getByLabelText(/dark mode/i)).not.toBeChecked()
     expect(document.documentElement.dataset.theme).toBe('light')
@@ -197,13 +218,62 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: /^back$/i }))
 
-    expect(screen.getByText(/0 of 128 choices added/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /individual mode/i })).toBeInTheDocument()
+  })
+
+  it('opens online mode with room creation and join actions', async () => {
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /online mode/i }))
+
+    expect(screen.getByRole('heading', { name: /online mode/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /create room/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /join room/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/^room code$/i)).toBeInTheDocument()
+  })
+
+  it('decides tied online match votes randomly after everyone votes', () => {
+    expect(
+      getOnlineMatchWinnerFromVotes(
+        {
+          participantA: 'choice-a',
+        },
+        2,
+        () => 0,
+      ),
+    ).toBeUndefined()
+
+    expect(
+      getOnlineMatchWinnerFromVotes(
+        {
+          participantA: 'choice-a',
+          participantB: 'choice-a',
+          participantC: 'choice-b',
+        },
+        3,
+        () => 0,
+      ),
+    ).toBe('choice-a')
+
+    expect(
+      getOnlineMatchWinnerFromVotes(
+        {
+          participantA: 'choice-a',
+          participantB: 'choice-b',
+        },
+        2,
+        () => 0.75,
+      ),
+    ).toBe('choice-b')
   })
 
   it('advances winners through a four-choice bracket and selects a champion', async () => {
     const user = userEvent.setup()
 
     render(<App />)
+    await openIndividualMode()
 
     await addChoices(['Elden Ring', 'Hades', 'Celeste', 'Balatro'])
 
@@ -237,6 +307,7 @@ describe('App', () => {
   it('does not persist a guest bracket champion across reloads', async () => {
     const user = userEvent.setup()
     const { unmount } = render(<App />)
+    await openIndividualMode()
 
     await addChoices(['Elden Ring', 'Hades', 'Celeste', 'Balatro'])
 
@@ -257,6 +328,7 @@ describe('App', () => {
 
     unmount()
     render(<App />)
+    await openIndividualMode()
 
     expect(screen.getByText(/0 of 128 choices added/i)).toBeInTheDocument()
     expect(screen.queryByText('Champion')).not.toBeInTheDocument()
@@ -268,6 +340,7 @@ describe('App', () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
 
     render(<App />)
+    await openIndividualMode()
 
     await addChoices(['Elden Ring', 'Hades'])
     await user.click(screen.getByRole('button', { name: /start over/i }))
@@ -283,6 +356,7 @@ describe('App', () => {
     const user = userEvent.setup()
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const { unmount } = render(<App />)
+    await openIndividualMode()
 
     await addChoices(['Elden Ring', 'Hades', 'Celeste', 'Balatro'])
 
@@ -316,6 +390,7 @@ describe('App', () => {
 
     unmount()
     render(<App />)
+    await openIndividualMode()
 
     expect(screen.getByText(/0 of 128 choices added/i)).toBeInTheDocument()
     expect(screen.queryByText('Elden Ring')).not.toBeInTheDocument()
@@ -325,6 +400,7 @@ describe('App', () => {
     const user = userEvent.setup()
 
     render(<App />)
+    await openIndividualMode()
 
     await addChoices(['Elden Ring', 'Hades', 'Celeste', 'Balatro'])
 
@@ -354,6 +430,7 @@ describe('App', () => {
     const user = userEvent.setup()
 
     render(<App />)
+    await openIndividualMode()
 
     await addChoices([
       'Elden Ring',
@@ -387,6 +464,7 @@ describe('App', () => {
     const user = userEvent.setup()
 
     render(<App />)
+    await openIndividualMode()
 
     await addChoices([
       'Elden Ring',

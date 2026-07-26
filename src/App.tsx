@@ -10,6 +10,7 @@ import {
 import type { Session } from '@supabase/supabase-js'
 import { getReductionRoundPlan, getReductionRoundPlans } from './bracket'
 import { getImportableChoiceNames } from './importChoices'
+import { getOnlineMatchWinnerFromVotes } from './onlineVoting'
 import { isSupabaseConfigured, supabase } from './supabaseClient'
 import './App.css'
 
@@ -20,6 +21,8 @@ const SETTINGS_STORAGE_KEY = 'what2pick.settings.v1'
 const USER_BRACKET_STATE_TABLE = 'user_bracket_states'
 const CHOICE_TEMPLATES_TABLE = 'choice_templates'
 const SAVED_BRACKETS_TABLE = 'saved_brackets'
+const ONLINE_ROOMS_TABLE = 'online_rooms'
+const ONLINE_PARTICIPANT_STORAGE_KEY = 'what2pick.onlineParticipantId.v1'
 
 type FixedBracketPosition = `slot-${number}`
 type BracketPosition = 'random' | FixedBracketPosition
@@ -76,11 +79,41 @@ type SavedBracketRow = {
   updated_at: string
 }
 
+type OnlineParticipant = {
+  id: string
+  name: string
+}
+
+type OnlineRoom = {
+  id: string
+  code: string
+  title: string
+  participants: OnlineParticipant[]
+  choices: Choice[]
+  bracketStarted: boolean
+  winnerByMatchId: Record<string, string>
+  votesByMatchId: Record<string, Record<string, string>>
+  updatedAt: string
+}
+
+type OnlineRoomRow = {
+  id: string
+  code: string
+  title: string
+  participants: unknown
+  choices: unknown
+  bracket_started: boolean
+  winner_by_match_id: unknown
+  votes_by_match_id: unknown
+  updated_at: string
+}
+
 type UserSettings = {
   darkMode: boolean
 }
 
 type AuthMode = 'login' | 'signup'
+type AppMode = 'home' | 'individual' | 'online' | 'settings'
 type TemplateSortMode = 'recent' | 'name'
 type SavedBracketSortMode = 'recent' | 'name'
 
@@ -308,6 +341,29 @@ function isWinnerMap(value: unknown): value is Record<string, string> {
   )
 }
 
+function isOnlineParticipant(value: unknown): value is OnlineParticipant {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.name === 'string'
+  )
+}
+
+function isVotesByMatchId(
+  value: unknown,
+): value is Record<string, Record<string, string>> {
+  return (
+    isRecord(value) &&
+    Object.values(value).every(
+      (votesByParticipant) =>
+        isRecord(votesByParticipant) &&
+        Object.values(votesByParticipant).every(
+          (choiceId) => typeof choiceId === 'string',
+        ),
+    )
+  )
+}
+
 function readPersistedSettings(): UserSettings {
   if (typeof window === 'undefined') {
     return {
@@ -405,6 +461,62 @@ function normalizeSavedBracket(row: SavedBracketRow): SavedBracket {
   }
 }
 
+function normalizeOnlineRoom(row: OnlineRoomRow): OnlineRoom {
+  const choices = Array.isArray(row.choices)
+    ? row.choices.filter(isChoice).slice(0, MAX_BRACKET_ITEMS)
+    : []
+  const participants = Array.isArray(row.participants)
+    ? row.participants.filter(isOnlineParticipant)
+    : []
+  const winnerByMatchId = isWinnerMap(row.winner_by_match_id)
+    ? row.winner_by_match_id
+    : {}
+  const votesByMatchId = isVotesByMatchId(row.votes_by_match_id)
+    ? row.votes_by_match_id
+    : {}
+
+  return {
+    id: row.id,
+    code: row.code,
+    title: row.title,
+    participants,
+    choices,
+    bracketStarted:
+      row.bracket_started === true && choices.length >= MIN_BRACKET_ITEMS,
+    winnerByMatchId,
+    votesByMatchId,
+    updatedAt: row.updated_at,
+  }
+}
+
+function getOnlineParticipantId() {
+  if (typeof window === 'undefined') {
+    return crypto.randomUUID()
+  }
+
+  try {
+    const storedId = window.localStorage.getItem(ONLINE_PARTICIPANT_STORAGE_KEY)
+
+    if (storedId) {
+      return storedId
+    }
+
+    const nextId = crypto.randomUUID()
+    window.localStorage.setItem(ONLINE_PARTICIPANT_STORAGE_KEY, nextId)
+    return nextId
+  } catch {
+    return crypto.randomUUID()
+  }
+}
+
+function generateRoomCode() {
+  return Array.from({ length: 6 }, () =>
+    'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'.at(
+      Math.floor(Math.random() * 32),
+    ),
+  ).join('')
+}
+
 function getAuthErrorMessage(errorMessage: string) {
   const normalizedMessage = errorMessage.toLowerCase()
 
@@ -421,6 +533,8 @@ function getAuthErrorMessage(errorMessage: string) {
 
 function App() {
   const persistedSettings = useMemo(readPersistedSettings, [])
+  const onlineParticipantId = useMemo(getOnlineParticipantId, [])
+  const [appMode, setAppMode] = useState<AppMode>('home')
   const [choiceName, setChoiceName] = useState('')
   const [bulkChoiceText, setBulkChoiceText] = useState('')
   const [bulkChoiceMode, setBulkChoiceMode] = useState(false)
@@ -445,6 +559,13 @@ function App() {
   const [savedBracketMessage, setSavedBracketMessage] = useState('')
   const [savedBracketLoading, setSavedBracketLoading] = useState(false)
   const [quickSaveOpen, setQuickSaveOpen] = useState(false)
+  const [onlineRoom, setOnlineRoom] = useState<OnlineRoom | null>(null)
+  const [onlineRoomTitle, setOnlineRoomTitle] = useState('Decision room')
+  const [onlineRoomCodeInput, setOnlineRoomCodeInput] = useState('')
+  const [onlineParticipantName, setOnlineParticipantName] = useState('')
+  const [onlineChoiceName, setOnlineChoiceName] = useState('')
+  const [onlineMessage, setOnlineMessage] = useState('')
+  const [onlineLoading, setOnlineLoading] = useState(false)
   const [choices, setChoices] = useState<Choice[]>([])
   const [bracketStarted, setBracketStarted] = useState(false)
   const [winnerByMatchId, setWinnerByMatchId] = useState<
@@ -596,6 +717,62 @@ function App() {
     () => getImportableChoiceNames(bulkChoiceText, availableChoiceSlots),
     [availableChoiceSlots, bulkChoiceText],
   )
+  const onlineBracketRounds = useMemo(
+    () =>
+      onlineRoom
+        ? buildBracketRounds(getBracketAssignments(onlineRoom.choices))
+        : [],
+    [onlineRoom],
+  )
+  const onlineFinalMatch = onlineBracketRounds.at(-1)?.matches[0]
+  const onlineChampion =
+    onlineRoom && onlineFinalMatch
+      ? onlineRoom.choices.find(
+          (choice) =>
+            choice.id === onlineRoom.winnerByMatchId[onlineFinalMatch.id],
+        )
+      : undefined
+  const onlineCurrentMatch = useMemo(() => {
+    if (!onlineRoom?.bracketStarted) {
+      return undefined
+    }
+
+    const currentOnlineRoom = onlineRoom
+
+    function resolveOnlineEntry(entry: BracketEntry) {
+      if (entry.type === 'choice') {
+        return entry.choice
+      }
+
+      return currentOnlineRoom.choices.find(
+        (choice) =>
+          choice.id === currentOnlineRoom.winnerByMatchId[entry.matchId],
+      )
+    }
+
+    for (const round of onlineBracketRounds) {
+      for (const match of round.matches) {
+        if (currentOnlineRoom.winnerByMatchId[match.id]) {
+          continue
+        }
+
+        const resolvedParticipants = match.participants.map(resolveOnlineEntry)
+
+        if (resolvedParticipants.every(Boolean)) {
+          return {
+            match,
+            participants: resolvedParticipants.filter(isChoice),
+          }
+        }
+      }
+    }
+
+    return undefined
+  }, [onlineBracketRounds, onlineRoom])
+  const onlineCurrentVotes =
+    onlineRoom && onlineCurrentMatch
+      ? onlineRoom.votesByMatchId[onlineCurrentMatch.match.id] ?? {}
+      : {}
   const positionOptions = Array.from(
     { length: choices.length },
     (_, index) => `slot-${index + 1}` as FixedBracketPosition,
@@ -1008,6 +1185,20 @@ function App() {
       window.removeEventListener('resize', scheduleUpdate)
     }
   }, [connectorRelations])
+
+  useEffect(() => {
+    if (appMode !== 'online' || !onlineRoom || !supabase) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      void loadOnlineRoomByCode(onlineRoom.code, true)
+    }, 2500)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [appMode, onlineRoom])
 
   function resolveEntry(entry: BracketEntry) {
     if (entry.type === 'choice') {
@@ -1656,11 +1847,259 @@ function App() {
     setAuthScreenOpen(true)
   }
 
+  function openMainMenu() {
+    setAppMode('home')
+    setAuthMessage('')
+  }
+
   function openChoiceDrawerForEntry() {
     setChoiceDrawerOpen(true)
     requestAnimationFrame(() => {
       choiceEntryRef.current?.focus()
     })
+  }
+
+  async function loadOnlineRoomByCode(code: string, silent = false) {
+    const normalizedCode = code.trim().toUpperCase()
+
+    if (!supabase || !normalizedCode) {
+      return undefined
+    }
+
+    if (!silent) {
+      setOnlineLoading(true)
+      setOnlineMessage('')
+    }
+
+    const { data, error } = await supabase
+      .from(ONLINE_ROOMS_TABLE)
+      .select(
+        'id, code, title, participants, choices, bracket_started, winner_by_match_id, votes_by_match_id, updated_at',
+      )
+      .eq('code', normalizedCode)
+      .maybeSingle<OnlineRoomRow>()
+
+    if (!silent) {
+      setOnlineLoading(false)
+    }
+
+    if (error || !data) {
+      if (!silent) {
+        setOnlineMessage('Could not find that room.')
+      }
+      return undefined
+    }
+
+    const room = normalizeOnlineRoom(data)
+    setOnlineRoom(room)
+    setOnlineRoomCodeInput(room.code)
+    return room
+  }
+
+  async function saveOnlineRoom(
+    nextRoom: OnlineRoom,
+    successMessage: string,
+  ) {
+    if (!supabase) {
+      setOnlineMessage('Online mode needs Supabase configured.')
+      return
+    }
+
+    setOnlineLoading(true)
+    setOnlineMessage('')
+
+    const { data, error } = await supabase
+      .from(ONLINE_ROOMS_TABLE)
+      .update({
+        participants: nextRoom.participants,
+        choices: nextRoom.choices,
+        bracket_started: nextRoom.bracketStarted,
+        winner_by_match_id: nextRoom.winnerByMatchId,
+        votes_by_match_id: nextRoom.votesByMatchId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', nextRoom.id)
+      .select(
+        'id, code, title, participants, choices, bracket_started, winner_by_match_id, votes_by_match_id, updated_at',
+      )
+      .single<OnlineRoomRow>()
+
+    setOnlineLoading(false)
+
+    if (error) {
+      setOnlineMessage('Could not update the room.')
+      return
+    }
+
+    setOnlineRoom(normalizeOnlineRoom(data))
+    setOnlineMessage(successMessage)
+  }
+
+  async function createOnlineRoom(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const participantName = onlineParticipantName.trim()
+    const title = onlineRoomTitle.trim() || 'Decision room'
+
+    if (!supabase || !participantName) {
+      setOnlineMessage('Enter your name to create a room.')
+      return
+    }
+
+    setOnlineLoading(true)
+    setOnlineMessage('')
+
+    const code = generateRoomCode()
+    const participants = [
+      {
+        id: onlineParticipantId,
+        name: participantName,
+      },
+    ]
+    const { data, error } = await supabase
+      .from(ONLINE_ROOMS_TABLE)
+      .insert({
+        code,
+        title,
+        host_user_id: session?.user.id ?? null,
+        participants,
+      })
+      .select(
+        'id, code, title, participants, choices, bracket_started, winner_by_match_id, votes_by_match_id, updated_at',
+      )
+      .single<OnlineRoomRow>()
+
+    setOnlineLoading(false)
+
+    if (error) {
+      setOnlineMessage('Could not create the room. Try again.')
+      return
+    }
+
+    setOnlineRoom(normalizeOnlineRoom(data))
+    setOnlineRoomCodeInput(code)
+    setOnlineMessage(`Room ${code} created.`)
+  }
+
+  async function joinOnlineRoom(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const participantName = onlineParticipantName.trim()
+
+    if (!participantName) {
+      setOnlineMessage('Enter your name to join.')
+      return
+    }
+
+    const room = await loadOnlineRoomByCode(onlineRoomCodeInput)
+
+    if (!room) {
+      return
+    }
+
+    const participants = room.participants.some(
+      (participant) => participant.id === onlineParticipantId,
+    )
+      ? room.participants.map((participant) =>
+          participant.id === onlineParticipantId
+            ? { ...participant, name: participantName }
+            : participant,
+        )
+      : [
+          ...room.participants,
+          {
+            id: onlineParticipantId,
+            name: participantName,
+          },
+        ]
+
+    await saveOnlineRoom(
+      {
+        ...room,
+        participants,
+      },
+      `Joined room ${room.code}.`,
+    )
+  }
+
+  function leaveOnlineRoom() {
+    setOnlineRoom(null)
+    setOnlineChoiceName('')
+    setOnlineMessage('')
+  }
+
+  async function addOnlineChoice(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const name = onlineChoiceName.trim()
+
+    if (
+      !onlineRoom ||
+      !name ||
+      onlineRoom.bracketStarted ||
+      onlineRoom.choices.length >= MAX_BRACKET_ITEMS
+    ) {
+      return
+    }
+
+    await saveOnlineRoom(
+      {
+        ...onlineRoom,
+        choices: [...onlineRoom.choices, createChoice(name)],
+      },
+      'Choice added.',
+    )
+    setOnlineChoiceName('')
+  }
+
+  async function startOnlineVoting() {
+    if (!onlineRoom || onlineRoom.choices.length < MIN_BRACKET_ITEMS) {
+      return
+    }
+
+    await saveOnlineRoom(
+      {
+        ...onlineRoom,
+        bracketStarted: true,
+        winnerByMatchId: {},
+        votesByMatchId: {},
+      },
+      'Voting started.',
+    )
+  }
+
+  async function voteOnline(choiceId: string) {
+    if (!onlineRoom || !onlineCurrentMatch) {
+      return
+    }
+
+    const matchId = onlineCurrentMatch.match.id
+    const votesForMatch = {
+      ...(onlineRoom.votesByMatchId[matchId] ?? {}),
+      [onlineParticipantId]: choiceId,
+    }
+    const votesByMatchId = {
+      ...onlineRoom.votesByMatchId,
+      [matchId]: votesForMatch,
+    }
+    const winningChoiceId = getOnlineMatchWinnerFromVotes(
+      votesForMatch,
+      onlineRoom.participants.length,
+    )
+
+    await saveOnlineRoom(
+      {
+        ...onlineRoom,
+        votesByMatchId,
+        winnerByMatchId: winningChoiceId
+          ? {
+              ...onlineRoom.winnerByMatchId,
+              [matchId]: winningChoiceId,
+            }
+          : onlineRoom.winnerByMatchId,
+      },
+      winningChoiceId ? 'Match decided.' : 'Vote saved.',
+    )
   }
 
   function switchAuthMode(nextAuthMode: AuthMode) {
@@ -2224,6 +2663,347 @@ function App() {
     )
   }
 
+  if (appMode === 'home') {
+    return (
+      <main className="home-phase">
+        <header>
+          <div className="home-hero">
+            <svg
+              aria-hidden="true"
+              className="brand-mark"
+              viewBox="0 0 64 64"
+            >
+              <path
+                d="M14 15h12c6 0 10 4 10 10v14c0 6 4 10 10 10h4"
+                className="brand-path brand-path-left"
+              />
+              <path
+                d="M50 15H38c-6 0-10 4-10 10v14c0 6-4 10-10 10h-4"
+                className="brand-path brand-path-right"
+              />
+              <circle cx="14" cy="15" r="5" className="brand-node" />
+              <circle cx="50" cy="15" r="5" className="brand-node" />
+              <circle cx="32" cy="32" r="6" className="brand-core" />
+              <path d="m28 32 3 3 6-7" className="brand-check" />
+            </svg>
+            <h1>What2Pick</h1>
+          </div>
+        </header>
+
+        <section className="mode-grid" aria-label="Choose mode">
+          <button
+            type="button"
+            className="mode-card primary-mode-card"
+            onClick={() => setAppMode('individual')}
+          >
+            <span>Individual mode</span>
+            <strong>Bracket</strong>
+          </button>
+
+          <button
+            type="button"
+            className="mode-card"
+            onClick={() => setAppMode('online')}
+          >
+            <span>Online mode</span>
+            <strong>Voting</strong>
+          </button>
+
+          <button
+            type="button"
+            className="mode-card"
+            onClick={() => setAppMode('settings')}
+          >
+            <span>Settings</span>
+            <strong>Theme</strong>
+          </button>
+
+          {isSupabaseConfigured ? (
+            session ? (
+              <section className="mode-card account-mode-card">
+                <span>Signed in</span>
+                <strong>{session.user.email}</strong>
+                <button type="button" onClick={signOut} disabled={authLoading}>
+                  Sign out
+                </button>
+              </section>
+            ) : (
+              <section className="mode-card account-mode-card">
+                <span>Account</span>
+                <strong>Sync</strong>
+                <div className="account-actions">
+                  <button type="button" onClick={() => openAuthScreen('login')}>
+                    Log in
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => openAuthScreen('signup')}
+                  >
+                    Create account
+                  </button>
+                </div>
+              </section>
+            )
+          ) : (
+            <section className="mode-card account-mode-card">
+              <span>Account</span>
+              <strong>Not configured</strong>
+            </section>
+          )}
+        </section>
+      </main>
+    )
+  }
+
+  if (appMode === 'settings') {
+    return (
+      <main className="settings-phase">
+        <section className="settings-screen" aria-label="Settings">
+          <div className="template-screen-header">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={openMainMenu}
+            >
+              Back
+            </button>
+            <div>
+              <h1>Settings</h1>
+              <p>Preferences</p>
+            </div>
+          </div>
+
+          <label className="settings-row" htmlFor="settings-dark-mode">
+            <span>
+              <strong>Dark mode</strong>
+              <small>Saved locally for guests and to your account when signed in.</small>
+            </span>
+            <input
+              id="settings-dark-mode"
+              type="checkbox"
+              checked={settings.darkMode}
+              onChange={(event) => updateDarkMode(event.target.checked)}
+            />
+          </label>
+        </section>
+      </main>
+    )
+  }
+
+  if (appMode === 'online') {
+    return (
+      <main className="online-phase">
+        <section className="settings-screen" aria-label="Online mode">
+          <div className="template-screen-header">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={openMainMenu}
+            >
+              Back
+            </button>
+            <div>
+              <h1>Online mode</h1>
+              <p>Voting room</p>
+            </div>
+          </div>
+
+          {!isSupabaseConfigured ? (
+            <div className="mode-placeholder">
+              <strong>Online mode needs Supabase.</strong>
+              <p>Configure Supabase before creating voting rooms.</p>
+            </div>
+          ) : !onlineRoom ? (
+            <div className="online-room-grid">
+              <form className="online-room-form" onSubmit={createOnlineRoom}>
+                <h2>Create room</h2>
+                <label htmlFor="online-participant-name">Your name</label>
+                <input
+                  id="online-participant-name"
+                  value={onlineParticipantName}
+                  onChange={(event) =>
+                    setOnlineParticipantName(event.target.value)
+                  }
+                  placeholder="Example: David"
+                />
+                <label htmlFor="online-room-title">Room name</label>
+                <input
+                  id="online-room-title"
+                  value={onlineRoomTitle}
+                  onChange={(event) => setOnlineRoomTitle(event.target.value)}
+                  placeholder="Decision room"
+                />
+                <button
+                  type="submit"
+                  disabled={onlineLoading || !onlineParticipantName.trim()}
+                >
+                  Create room
+                </button>
+              </form>
+
+              <form className="online-room-form" onSubmit={joinOnlineRoom}>
+                <h2>Join room</h2>
+                <label htmlFor="join-participant-name">Your name</label>
+                <input
+                  id="join-participant-name"
+                  value={onlineParticipantName}
+                  onChange={(event) =>
+                    setOnlineParticipantName(event.target.value)
+                  }
+                  placeholder="Example: David"
+                />
+                <label htmlFor="online-room-code">Room code</label>
+                <input
+                  id="online-room-code"
+                  value={onlineRoomCodeInput}
+                  onChange={(event) =>
+                    setOnlineRoomCodeInput(event.target.value.toUpperCase())
+                  }
+                  placeholder="ABC123"
+                />
+                <button
+                  type="submit"
+                  disabled={
+                    onlineLoading ||
+                    !onlineParticipantName.trim() ||
+                    !onlineRoomCodeInput.trim()
+                  }
+                >
+                  Join room
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className="online-room">
+              <div className="online-room-header">
+                <div>
+                  <h2>{onlineRoom.title}</h2>
+                  <p>
+                    Code <strong>{onlineRoom.code}</strong> ·{' '}
+                    {onlineRoom.participants.length} participant
+                    {onlineRoom.participants.length === 1 ? '' : 's'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={leaveOnlineRoom}
+                >
+                  Leave
+                </button>
+              </div>
+
+              <section className="online-room-panel">
+                <h3>Participants</h3>
+                <ul className="online-pill-list">
+                  {onlineRoom.participants.map((participant) => (
+                    <li key={participant.id}>
+                      {participant.name}
+                      {participant.id === onlineParticipantId ? ' (you)' : ''}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              {!onlineRoom.bracketStarted ? (
+                <section className="online-room-panel">
+                  <h3>Shared choices</h3>
+                  <form className="online-choice-form" onSubmit={addOnlineChoice}>
+                    <label htmlFor="online-choice-name">Choice name</label>
+                    <input
+                      id="online-choice-name"
+                      value={onlineChoiceName}
+                      onChange={(event) =>
+                        setOnlineChoiceName(event.target.value)
+                      }
+                      placeholder="Example: Pizza"
+                      disabled={
+                        onlineLoading ||
+                        onlineRoom.choices.length >= MAX_BRACKET_ITEMS
+                      }
+                    />
+                    <button
+                      type="submit"
+                      disabled={onlineLoading || !onlineChoiceName.trim()}
+                    >
+                      Add choice
+                    </button>
+                  </form>
+
+                  {onlineRoom.choices.length > 0 ? (
+                    <ul className="online-choice-list">
+                      {onlineRoom.choices.map((choice) => (
+                        <li key={choice.id}>{choice.name}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>No shared choices yet.</p>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={startOnlineVoting}
+                    disabled={
+                      onlineLoading ||
+                      onlineRoom.choices.length < MIN_BRACKET_ITEMS
+                    }
+                  >
+                    Start voting
+                  </button>
+                </section>
+              ) : (
+                <section className="online-room-panel">
+                  <h3>Current vote</h3>
+                  {onlineChampion ? (
+                    <div className="champion-result" role="status">
+                      <p>Champion</p>
+                      <h3>{onlineChampion.name}</h3>
+                    </div>
+                  ) : onlineCurrentMatch ? (
+                    <div className="online-vote-card">
+                      <h4>{onlineCurrentMatch.match.label}</h4>
+                      <div className="online-vote-options">
+                        {onlineCurrentMatch.participants.map((choice) => {
+                          const voteCount = Object.values(
+                            onlineCurrentVotes,
+                          ).filter((choiceId) => choiceId === choice.id).length
+                          const isSelected =
+                            onlineCurrentVotes[onlineParticipantId] === choice.id
+
+                          return (
+                            <button
+                              type="button"
+                              className={isSelected ? 'selected' : undefined}
+                              key={choice.id}
+                              onClick={() => voteOnline(choice.id)}
+                              disabled={onlineLoading}
+                            >
+                              <span>{choice.name}</span>
+                              <strong>{voteCount}</strong>
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <p>
+                        {Object.keys(onlineCurrentVotes).length} of{' '}
+                        {onlineRoom.participants.length} votes in.
+                      </p>
+                    </div>
+                  ) : (
+                    <p>Waiting for the next match.</p>
+                  )}
+                </section>
+              )}
+            </div>
+          )}
+
+          {onlineMessage && <p role="status">{onlineMessage}</p>}
+        </section>
+      </main>
+    )
+  }
+
   return (
     <main
       className={
@@ -2260,6 +3040,14 @@ function App() {
           </div>
 
           <div className="top-controls">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={openMainMenu}
+            >
+              Menu
+            </button>
+
             <label className="theme-toggle" htmlFor="dark-mode">
               <input
                 id="dark-mode"

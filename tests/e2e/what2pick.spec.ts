@@ -17,6 +17,7 @@ test('chooses a champion through the What2Pick bracket', async ({ page }) => {
   await test.step('Open What2Pick', async () => {
     await page.goto('/')
     await expect(page.getByRole('heading', { name: 'What2Pick' })).toBeVisible()
+    await page.getByRole('button', { name: /Individual mode/ }).click()
   })
 
   await test.step('Add four choices', async () => {
@@ -77,6 +78,7 @@ test('renders multi-round bracket connectors without empty endpoints', async ({
 
   async function buildBracket(bracketChoices: string[]) {
     await page.goto('/')
+    await page.getByRole('button', { name: /Individual mode/ }).click()
 
     for (const choice of bracketChoices) {
       await page.getByLabel('Choice name').fill(choice)
@@ -90,6 +92,15 @@ test('renders multi-round bracket connectors without empty endpoints', async ({
   await expect(page.getByTestId('bracket-connector')).toHaveCount(6)
 
   async function expectAlignedConnectors(expectedConnectorCount: number) {
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => resolve())
+          })
+        }),
+    )
+
     const connectorReport = await page.evaluate(() => {
       const arena = document.querySelector('.bracket-arena')
 

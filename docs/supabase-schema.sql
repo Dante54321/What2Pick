@@ -129,3 +129,44 @@ create policy "Users can delete their own saved brackets"
   on public.saved_brackets
   for delete
   using (auth.uid() = user_id);
+
+create table if not exists public.online_rooms (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  title text not null default 'Decision room',
+  host_user_id uuid references auth.users(id) on delete set null,
+  participants jsonb not null default '[]'::jsonb,
+  choices jsonb not null default '[]'::jsonb,
+  bracket_started boolean not null default false,
+  winner_by_match_id jsonb not null default '{}'::jsonb,
+  votes_by_match_id jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.online_rooms enable row level security;
+
+drop policy if exists "Anyone can read online rooms"
+  on public.online_rooms;
+
+create policy "Anyone can read online rooms"
+  on public.online_rooms
+  for select
+  using (true);
+
+drop policy if exists "Anyone can create online rooms"
+  on public.online_rooms;
+
+create policy "Anyone can create online rooms"
+  on public.online_rooms
+  for insert
+  with check (true);
+
+drop policy if exists "Anyone can update online rooms"
+  on public.online_rooms;
+
+create policy "Anyone can update online rooms"
+  on public.online_rooms
+  for update
+  using (true)
+  with check (true);

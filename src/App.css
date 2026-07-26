@@ -229,6 +229,207 @@ main>header p {
   grid-template-columns: 1fr;
 }
 
+.home-phase,
+.settings-phase,
+.online-phase {
+  grid-template-columns: 1fr;
+  align-content: start;
+}
+
+.home-phase {
+  gap: 1.25rem;
+}
+
+.home-hero {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  gap: 0.85rem;
+  align-items: center;
+  justify-self: start;
+}
+
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(12rem, 1fr));
+  gap: 1rem;
+}
+
+.mode-card {
+  min-height: 12rem;
+  display: grid;
+  align-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  color: #e5e7eb;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(8, 17, 31, 0.9)),
+    #0c1220;
+  border: 1px solid rgba(94, 234, 212, 0.18);
+  border-radius: 0.65rem;
+  text-align: left;
+}
+
+.mode-card:hover:not(:disabled) {
+  background:
+    linear-gradient(180deg, rgba(19, 39, 61, 0.96), rgba(8, 17, 31, 0.94)),
+    #0c1220;
+}
+
+.mode-card span {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.mode-card strong {
+  overflow: hidden;
+  color: #f8fafc;
+  font-size: clamp(1.45rem, 3vw, 2.4rem);
+  line-height: 1;
+  text-overflow: ellipsis;
+}
+
+.primary-mode-card {
+  border-color: rgba(245, 158, 11, 0.54);
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.12);
+}
+
+.account-mode-card {
+  min-width: 0;
+}
+
+.account-mode-card button {
+  width: 100%;
+}
+
+.settings-screen {
+  display: grid;
+  gap: 1rem;
+  max-width: 56rem;
+}
+
+.settings-row {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: #0c1220;
+  border: 1px solid #293348;
+  border-radius: 0.65rem;
+}
+
+.settings-row span {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.settings-row small,
+.mode-placeholder p {
+  color: #94a3b8;
+}
+
+.settings-row input {
+  width: 1.2rem;
+  height: 1.2rem;
+  min-width: 1.2rem;
+  accent-color: #14b8a6;
+}
+
+.mode-placeholder {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #0c1220;
+  border: 1px solid #293348;
+  border-radius: 0.65rem;
+}
+
+.online-room-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(18rem, 1fr));
+  gap: 1rem;
+}
+
+.online-room-form,
+.online-room,
+.online-room-panel {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+  background: #0c1220;
+  border: 1px solid #293348;
+  border-radius: 0.65rem;
+}
+
+.online-room {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.online-room-header {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.online-room-header p,
+.online-room-panel p,
+.online-vote-card p {
+  margin: 0;
+  color: #94a3b8;
+}
+
+.online-pill-list,
+.online-choice-list {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.online-pill-list li,
+.online-choice-list li {
+  padding: 0.45rem 0.65rem;
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 999px;
+}
+
+.online-choice-form {
+  margin: 0;
+}
+
+.online-vote-card {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.online-vote-options {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.online-vote-options button {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  color: #e5e7eb;
+  background: #111827;
+  border-color: #334155;
+}
+
+.online-vote-options button.selected {
+  color: #fff7ed;
+  background: rgba(245, 158, 11, 0.18);
+  border-color: #f59e0b;
+}
+
 .auth-screen {
   display: grid;
   gap: 1.25rem;
@@ -1118,6 +1319,14 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  .mode-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .online-room-grid {
+    grid-template-columns: 1fr;
+  }
+
   .template-screen-header,
   .template-panel-header {
     align-items: stretch;
@@ -1212,6 +1421,14 @@ button:disabled {
   .drawer-toggle-button {
     width: 100%;
   }
+
+  .mode-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mode-card {
+    min-height: 8rem;
+  }
 }
 
 :root[data-theme="light"] {
@@ -1299,6 +1516,7 @@ button:disabled {
 
 :root[data-theme="light"] main>section,
 :root[data-theme="light"] .setup-control-bar,
+:root[data-theme="light"] .mode-card,
 :root[data-theme="light"] .bracket-round article {
   background: rgba(255, 255, 255, 0.9);
   border-color: rgba(15, 118, 110, 0.18);
@@ -1321,6 +1539,13 @@ button:disabled {
 :root[data-theme="light"] input,
 :root[data-theme="light"] textarea,
 :root[data-theme="light"] select,
+:root[data-theme="light"] .settings-row,
+:root[data-theme="light"] .mode-placeholder,
+:root[data-theme="light"] .online-room-form,
+:root[data-theme="light"] .online-room-panel,
+:root[data-theme="light"] .online-pill-list li,
+:root[data-theme="light"] .online-choice-list li,
+:root[data-theme="light"] .online-vote-options button,
 :root[data-theme="light"] .choice-list li,
 :root[data-theme="light"] .quick-list-panel,
 :root[data-theme="light"] .drawer-toggle-button,
@@ -1330,6 +1555,19 @@ button:disabled {
   color: #172033;
   background: #f8fafc;
   border-color: #cbd5e1;
+}
+
+:root[data-theme="light"] .mode-card span,
+:root[data-theme="light"] .settings-row small,
+:root[data-theme="light"] .mode-placeholder p,
+:root[data-theme="light"] .online-room-header p,
+:root[data-theme="light"] .online-room-panel p,
+:root[data-theme="light"] .online-vote-card p {
+  color: #64748b;
+}
+
+:root[data-theme="light"] .mode-card strong {
+  color: #172033;
 }
 
 :root[data-theme="light"] .template-panel p {
