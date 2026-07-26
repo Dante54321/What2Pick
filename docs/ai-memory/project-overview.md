@@ -37,10 +37,14 @@ Confirmed from `package.json`:
 Known requirements from the user:
 
 - The user creates a list of elements to compare through an elimination bracket.
-- The user can keep the list, positions, and bracket progress across browser reloads on the same device/browser.
+- Logged-in users can keep choices, saved lists, bracket snapshots, positions, preferences, and bracket progress across sessions.
+- Guest users can use the app without an account, but their choices, brackets, and saved lists should not persist.
+- Small non-sensitive guest UI preferences, such as dark mode, may persist locally in `localStorage`.
 - The user can manually assign elements to numeric bracket slots, or distribute them randomly.
 - A bracket preview should update while the bracket is configured.
 - The system should correctly handle winners advancing between rounds, semifinals, and final.
+- The public web app is the first product priority; a native or installable app is a later possibility.
+- The current choice cap is 128 unless real usage shows a need for more.
 
 ## Confirmed Implementation
 
@@ -61,13 +65,14 @@ Confirmed in `src/App.tsx`:
 - Winner selections populate later-round choices, and changing a prior winner clears dependent later winners.
 - A champion is displayed after the final winner is selected.
 - Returning to setup clears selected winners and the champion.
-- Browser `localStorage` persists choices, positions, started state, selected winners, and champion.
+- Logged-in user bracket/list/progress persistence is Supabase-backed.
+- Guest bracket/list/progress state is local to the current session and is not restored after reload or logout.
+- Guest dark mode preference persists locally in `localStorage`.
 - Legacy saved `games` storage is read as choices for compatibility with earlier local state.
 - Automated tests cover core setup, dynamic slot assignment, winner advancement, winner reset, three-way opening matches, and E2E champion selection.
 
 ## Unknown Or Not Confirmed
 
-- Login/profile support is not implemented.
 - Deployment target is unknown.
 - Production design goals are unknown.
 - Accessibility requirements beyond current HTML semantics are unknown.

@@ -1,6 +1,6 @@
 # What2Pick Current State
 
-Last updated: 2026-07-25
+Last updated: 2026-07-26
 
 ## Confirmed Application State
 
@@ -46,6 +46,10 @@ Last updated: 2026-07-25
 - Supabase has been selected for authentication and user-scoped database storage.
 - Supabase client wiring has started; `.env.local` contains the local project URL and publishable key, and `.env.example` documents the required Vite environment variables.
 - `docs/supabase-schema.sql` must be run in Supabase before user bracket state can load/save remotely.
+- Product direction: guest usage remains available but should not persist choices, brackets, or saved lists.
+- Product direction: small non-sensitive guest UI preferences, such as dark mode, may persist locally in `localStorage`.
+- Product direction: prioritize the public web app first; a native or installable app can come later.
+- Product direction: keep 128 choices as the current cap unless real usage shows a need for more.
 
 ## Latest Session Notes
 
@@ -146,6 +150,14 @@ Last updated: 2026-07-25
 - Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 - Changed bracket planning so 3 remaining participants is treated as a valid terminal final, not another reduction target.
 - Fixed the 7-choice bracket path to create 2 two-player matches and 1 three-way opening match, then a single three-way final.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Confirmed guest dark mode can persist locally in `localStorage` while guest brackets, lists, and progress remain non-persistent.
+- Replaced CSS-only bracket connector stubs with SVG connectors calculated from actual source and target match positions.
+- Added Playwright coverage that checks multi-round connector endpoints, mobile resizing, and the 7-choice `r1-m3 -> r2-m1` connection.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Moved setup choice management into a collapsible left-side choices panel with a compact setup control bar; when open, the bracket area resizes instead of being covered.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Compacted choice-list rows so each choice displays on one line with a small position selector and a red cross remove button.
 - Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 
 ## Initial Memory Setup Notes

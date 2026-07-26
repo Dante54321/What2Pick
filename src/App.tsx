@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -110,6 +111,17 @@ type BracketRoundColumn = {
   name: string
   roundIndex: number
   matches: BracketMatch[]
+}
+
+type BracketConnector = {
+  id: string
+  path: string
+  sourceMatchId: string
+  sourceX: number
+  sourceY: number
+  targetMatchId: string
+  targetX: number
+  targetY: number
 }
 
 function getRoundName(roundIndex: number, totalRounds: number) {
@@ -412,6 +424,7 @@ function App() {
   const [choiceName, setChoiceName] = useState('')
   const [bulkChoiceText, setBulkChoiceText] = useState('')
   const [bulkChoiceMode, setBulkChoiceMode] = useState(false)
+  const [choiceDrawerOpen, setChoiceDrawerOpen] = useState(true)
   const [templateName, setTemplateName] = useState('')
   const [choiceTemplates, setChoiceTemplates] = useState<ChoiceTemplate[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
@@ -449,6 +462,12 @@ function App() {
   const [authMode, setAuthMode] = useState<AuthMode>('login')
   const bracketScrollbarRef = useRef<HTMLDivElement>(null)
   const bracketViewportRef = useRef<HTMLDivElement>(null)
+  const bracketArenaRef = useRef<HTMLDivElement>(null)
+  const choiceEntryRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const matchElementRefs = useRef(new Map<string, HTMLElement>())
+  const [bracketConnectors, setBracketConnectors] = useState<
+    BracketConnector[]
+  >([])
 
   const bracketAssignments = useMemo(
     () => getBracketAssignments(choices),
@@ -545,6 +564,25 @@ function App() {
   const bracketColumnCount =
     leftRoundColumns.length + rightRoundColumns.length +
     (finalRoundColumn ? 1 : 0)
+  const connectorRelations = useMemo(() => {
+    const relations: Array<{ sourceMatchId: string; targetMatchId: string }> =
+      []
+
+    bracketRounds.forEach((round) => {
+      round.matches.forEach((match) => {
+        match.participants.forEach((participant) => {
+          if (participant.type === 'match') {
+            relations.push({
+              sourceMatchId: participant.matchId,
+              targetMatchId: match.id,
+            })
+          }
+        })
+      })
+    })
+
+    return relations
+  }, [bracketRounds])
   const champion = finalMatch
     ? choices.find((choice) => choice.id === winnerByMatchId[finalMatch.id])
     : undefined
@@ -879,6 +917,97 @@ function App() {
       scrollbar.scrollLeft = centeredScrollLeft
     })
   }, [bracketColumnCount, choices.length])
+
+  useLayoutEffect(() => {
+    const arena = bracketArenaRef.current
+    const viewport = bracketViewportRef.current
+
+    if (!arena || connectorRelations.length === 0) {
+      setBracketConnectors([])
+      return
+    }
+
+    let animationFrameId = 0
+
+    function updateConnectors() {
+      const currentArena = bracketArenaRef.current
+
+      if (!currentArena) {
+        return
+      }
+
+      const arenaRect = currentArena.getBoundingClientRect()
+      const nextConnectors = connectorRelations.flatMap((relation) => {
+        const sourceElement = matchElementRefs.current.get(
+          relation.sourceMatchId,
+        )
+        const targetElement = matchElementRefs.current.get(
+          relation.targetMatchId,
+        )
+
+        if (!sourceElement || !targetElement) {
+          return []
+        }
+
+        const sourceRect = sourceElement.getBoundingClientRect()
+        const targetRect = targetElement.getBoundingClientRect()
+        const sourceIsLeftOfTarget = sourceRect.left <= targetRect.left
+        const sourceX = sourceIsLeftOfTarget
+          ? sourceRect.right - arenaRect.left
+          : sourceRect.left - arenaRect.left
+        const targetX = sourceIsLeftOfTarget
+          ? targetRect.left - arenaRect.left
+          : targetRect.right - arenaRect.left
+        const sourceY = sourceRect.top + sourceRect.height / 2 - arenaRect.top
+        const targetY = targetRect.top + targetRect.height / 2 - arenaRect.top
+        const midpointX = sourceX + (targetX - sourceX) / 2
+
+        return [
+          {
+            id: `${relation.sourceMatchId}-${relation.targetMatchId}`,
+            path: `M ${sourceX} ${sourceY} H ${midpointX} V ${targetY} H ${targetX}`,
+            sourceMatchId: relation.sourceMatchId,
+            sourceX,
+            sourceY,
+            targetMatchId: relation.targetMatchId,
+            targetX,
+            targetY,
+          },
+        ]
+      })
+
+      setBracketConnectors(nextConnectors)
+    }
+
+    function scheduleUpdate() {
+      window.cancelAnimationFrame(animationFrameId)
+      animationFrameId = window.requestAnimationFrame(() => {
+        updateConnectors()
+        animationFrameId = window.requestAnimationFrame(updateConnectors)
+      })
+    }
+
+    scheduleUpdate()
+
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined'
+        ? undefined
+        : new ResizeObserver(scheduleUpdate)
+    resizeObserver?.observe(arena)
+
+    matchElementRefs.current.forEach((matchElement) => {
+      resizeObserver?.observe(matchElement)
+    })
+    viewport?.addEventListener('scroll', scheduleUpdate)
+    window.addEventListener('resize', scheduleUpdate)
+
+    return () => {
+      window.cancelAnimationFrame(animationFrameId)
+      resizeObserver?.disconnect()
+      viewport?.removeEventListener('scroll', scheduleUpdate)
+      window.removeEventListener('resize', scheduleUpdate)
+    }
+  }, [connectorRelations])
 
   function resolveEntry(entry: BracketEntry) {
     if (entry.type === 'choice') {
@@ -1527,6 +1656,13 @@ function App() {
     setAuthScreenOpen(true)
   }
 
+  function openChoiceDrawerForEntry() {
+    setChoiceDrawerOpen(true)
+    requestAnimationFrame(() => {
+      choiceEntryRef.current?.focus()
+    })
+  }
+
   function switchAuthMode(nextAuthMode: AuthMode) {
     setAuthMode(nextAuthMode)
     setAuthMessage('')
@@ -1576,7 +1712,18 @@ function App() {
             const isReady = resolvedParticipants.every(Boolean)
 
             return (
-              <article key={match.id}>
+              <article
+                data-match-id={match.id}
+                key={match.id}
+                ref={(element) => {
+                  if (element) {
+                    matchElementRefs.current.set(match.id, element)
+                    return
+                  }
+
+                  matchElementRefs.current.delete(match.id)
+                }}
+              >
                 <h4>{match.label}</h4>
 
                 {match.participants.map((participant, index) => {
@@ -2078,7 +2225,15 @@ function App() {
   }
 
   return (
-    <main className={bracketStarted ? 'playing-phase' : 'setup-phase'}>
+    <main
+      className={
+        bracketStarted
+          ? 'playing-phase'
+          : `setup-phase ${
+              choiceDrawerOpen ? 'choices-open' : 'choices-closed'
+            }`
+      }
+    >
       <header>
         <div className="top-bar">
           <div className="brand-lockup">
@@ -2162,12 +2317,61 @@ function App() {
       </header>
 
       {!bracketStarted && (
-        <section className="setup-panel">
-          <h2>Add your choices</h2>
-          <p>
-            {choices.length} of {MAX_BRACKET_ITEMS} choices added. Start with at
-            least {MIN_BRACKET_ITEMS}.
-          </p>
+        <>
+          <section className="setup-control-bar" aria-label="Choice controls">
+            <button
+              type="button"
+              className="drawer-toggle-button"
+              aria-expanded={choiceDrawerOpen}
+              aria-controls="choice-drawer"
+              onClick={() => setChoiceDrawerOpen((isOpen) => !isOpen)}
+            >
+              <span>{choiceDrawerOpen ? 'Hide choices' : 'Show choices'}</span>
+              <strong>
+                {choices.length}/{MAX_BRACKET_ITEMS}
+              </strong>
+            </button>
+
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={openChoiceDrawerForEntry}
+              disabled={choices.length >= MAX_BRACKET_ITEMS}
+            >
+              Add
+            </button>
+
+            <button
+              type="button"
+              onClick={toggleBracket}
+              disabled={!canStartBracket}
+            >
+              Start
+            </button>
+          </section>
+
+          {choiceDrawerOpen && (
+            <section
+              className="setup-panel choice-drawer"
+              id="choice-drawer"
+              aria-label="Choices drawer"
+            >
+              <div className="choice-drawer-header">
+                <div>
+                  <h2>Choices</h2>
+                  <p>
+                    {choices.length} of {MAX_BRACKET_ITEMS} choices added. Start
+                    with at least {MIN_BRACKET_ITEMS}.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setChoiceDrawerOpen(false)}
+                >
+                  Hide
+                </button>
+              </div>
 
           <div className="choice-entry-grid">
             <form
@@ -2198,6 +2402,9 @@ function App() {
                 <>
                   <textarea
                     id="choice-entry"
+                    ref={(element) => {
+                      choiceEntryRef.current = element
+                    }}
                     placeholder={'Pizza\nSushi\nTacos'}
                     value={bulkChoiceText}
                     onChange={(event) => setBulkChoiceText(event.target.value)}
@@ -2218,6 +2425,9 @@ function App() {
               ) : (
                 <input
                   id="choice-entry"
+                  ref={(element) => {
+                    choiceEntryRef.current = element
+                  }}
                   type="text"
                   placeholder="Example: Pizza"
                   value={choiceName}
@@ -2249,7 +2459,10 @@ function App() {
                 <li key={choice.id}>
                   <span>{choice.name}</span>
 
-                  <label htmlFor={`position-${choice.id}`}>
+                  <label
+                    className="visually-hidden"
+                    htmlFor={`position-${choice.id}`}
+                  >
                     Position
                   </label>
 
@@ -2287,10 +2500,12 @@ function App() {
 
                   <button
                     type="button"
+                    aria-label={`Remove ${choice.name}`}
+                    className="remove-choice-button"
                     onClick={() => removeChoice(choice.id)}
                     disabled={bracketStarted}
                   >
-                    Remove
+                    ×
                   </button>
                 </li>
               ))}
@@ -2381,7 +2596,9 @@ function App() {
               </button>
             )}
           </div>
-        </section>
+            </section>
+          )}
+        </>
       )}
 
       <section className="bracket-panel">
@@ -2453,10 +2670,32 @@ function App() {
             >
               <div
                 className="bracket-rounds bracket-arena"
+                ref={bracketArenaRef}
                 style={{
                   '--bracket-side-width': `${bracketSideWidthRem}rem`,
                 } as CSSProperties}
               >
+                {bracketConnectors.length > 0 && (
+                  <svg
+                    aria-hidden="true"
+                    className="bracket-connectors"
+                    data-testid="bracket-connectors"
+                  >
+                    {bracketConnectors.map((connector) => (
+                      <path
+                        d={connector.path}
+                        data-source-match-id={connector.sourceMatchId}
+                        data-source-x={connector.sourceX}
+                        data-source-y={connector.sourceY}
+                        data-target-match-id={connector.targetMatchId}
+                        data-target-x={connector.targetX}
+                        data-target-y={connector.targetY}
+                        data-testid="bracket-connector"
+                        key={connector.id}
+                      />
+                    ))}
+                  </svg>
+                )}
                 <div className="bracket-side bracket-side-left">
                   {leftRoundColumns.map((round, index) =>
                     renderRoundColumn(round, 'left', index),

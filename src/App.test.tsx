@@ -154,7 +154,7 @@ describe('App', () => {
     expect(screen.queryByText('Elden Ring')).not.toBeInTheDocument()
   })
 
-  it('persists the dark mode preference across reloads', async () => {
+  it('persists the guest dark mode preference across reloads', async () => {
     const user = userEvent.setup()
     const { unmount } = render(<App />)
 
@@ -173,6 +173,7 @@ describe('App', () => {
 
     expect(screen.getByLabelText(/dark mode/i)).not.toBeChecked()
     expect(document.documentElement.dataset.theme).toBe('light')
+    expect(localStorage.getItem('what2pick.settings.v1')).toBeTruthy()
   })
 
   it('opens a separate login screen and can switch to account creation', async () => {

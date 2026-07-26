@@ -3,24 +3,42 @@
 }
 
 main {
-  width: min(1440px, 100%);
+  width: 100%;
+  min-height: 100vh;
   margin: 0 auto;
-  padding: 3rem 1.5rem;
+  padding: 1.25rem;
   display: grid;
   grid-template-columns: minmax(320px, 0.9fr) minmax(420px, 1.1fr);
   gap: 1.5rem;
 }
 
 main.playing-phase {
-  width: min(1920px, 100%);
+  width: 100%;
   grid-template-columns: 1fr;
 }
 
-main.setup-phase .bracket-panel {
-  grid-column: 1 / -1;
+main.setup-phase.choices-open {
+  grid-template-columns: minmax(17rem, 19.5rem) minmax(0, 1fr);
+  align-items: start;
+}
+
+main.setup-phase.choices-closed {
+  grid-template-columns: 1fr;
+}
+
+main.setup-phase.choices-open .bracket-panel {
+  grid-column: 2;
+}
+
+main.setup-phase.choices-closed .bracket-panel {
+  grid-column: 1;
 }
 
 main.setup-phase .setup-panel {
+  grid-column: 1;
+}
+
+main.setup-phase .setup-control-bar {
   grid-column: 1 / -1;
 }
 
@@ -29,7 +47,7 @@ main>header {
   display: grid;
   gap: 0.85rem;
   text-align: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0;
 }
 
 .top-bar {
@@ -291,12 +309,74 @@ main>section {
     rgba(17, 24, 39, 0.88);
   border: 1px solid rgba(94, 234, 212, 0.16);
   border-radius: 0.5rem;
-  box-shadow: 0 1.25rem 3rem rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.18);
 }
 
 .bracket-panel {
   min-width: 0;
   max-width: 100%;
+}
+
+.setup-control-bar {
+  position: sticky;
+  top: 0.75rem;
+  z-index: 12;
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0.7rem;
+  background: rgba(12, 18, 32, 0.86);
+  border: 1px solid rgba(94, 234, 212, 0.2);
+  border-radius: 0.65rem;
+  box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(14px);
+}
+
+.drawer-toggle-button {
+  display: inline-flex;
+  gap: 0.65rem;
+  align-items: center;
+  min-width: 11rem;
+  justify-content: space-between;
+  background: #0c1220;
+  border-color: rgba(94, 234, 212, 0.34);
+}
+
+.drawer-toggle-button strong {
+  color: #99f6e4;
+}
+
+.choice-drawer {
+  position: sticky;
+  top: 6.5rem;
+  z-index: 4;
+  width: 100%;
+  max-height: calc(100vh - 7.5rem);
+  padding: 1.25rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.choice-drawer-header {
+  position: sticky;
+  top: -1.25rem;
+  z-index: 2;
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin: -1.25rem -1.25rem 1rem;
+  padding: 1.25rem;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.94)),
+    #0c1220;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.choice-drawer-header p {
+  margin: 0.25rem 0 0;
+  color: #9da9bc;
 }
 
 main.playing-phase .bracket-panel {
@@ -378,6 +458,17 @@ section>p {
   gap: 1.25rem;
   align-items: start;
   margin: 1.5rem 0;
+}
+
+.choice-drawer .choice-entry-grid {
+  grid-template-columns: 1fr;
+  margin: 1rem 0;
+}
+
+.choice-drawer .choice-entry-form,
+.choice-drawer .choice-entry-form.bulk-mode {
+  grid-template-columns: 1fr;
+  width: 100%;
 }
 
 form {
@@ -482,6 +573,17 @@ button:disabled {
   opacity: 0.7;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .setup-actions,
 .bracket-panel-actions {
   display: flex;
@@ -520,13 +622,23 @@ button:disabled {
   list-style: none;
 }
 
+.choice-drawer .choice-list {
+  column-count: 1;
+}
+
+.choice-drawer .choice-list li {
+  grid-template-columns: minmax(0, 1fr) minmax(5.6rem, 6.4rem) 2.15rem;
+  min-height: 0;
+  padding: 0.45rem 0.5rem;
+}
+
 .choice-list li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.6rem;
+  gap: 0.45rem;
   align-items: center;
-  min-height: 6rem;
-  margin: 0 0 0.65rem;
+  min-height: 2.9rem;
+  margin: 0 0 0.45rem;
   padding: 0.75rem;
   background: #0c1220;
   border: 1px solid #293348;
@@ -550,19 +662,25 @@ button:disabled {
 }
 
 .choice-list li select {
-  grid-column: 1;
-  min-width: 5.5rem;
-  padding: 0.55rem;
+  grid-column: auto;
+  min-width: 0;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.85rem;
 }
 
 .choice-list li button {
-  grid-column: 2;
-  grid-row: 2;
-  align-self: stretch;
-  padding: 0.55rem 0.7rem;
+  grid-column: auto;
+  grid-row: auto;
+  align-self: center;
+  justify-self: end;
+  width: 2.15rem;
+  height: 2.15rem;
+  padding: 0;
   color: #fca5a5;
   background: transparent;
   border-color: #7f1d1d;
+  font-size: 1.35rem;
+  line-height: 1;
 }
 
 .choice-list li button:hover:not(:disabled) {
@@ -579,6 +697,10 @@ button:disabled {
   background: rgba(12, 18, 32, 0.62);
   border: 1px solid rgba(148, 163, 184, 0.16);
   border-radius: 0.5rem;
+}
+
+.choice-drawer .quick-list-panel {
+  grid-template-columns: 1fr;
 }
 
 .quick-list-summary {
@@ -764,6 +886,7 @@ button:disabled {
 }
 
 .bracket-arena {
+  position: relative;
   display: grid;
   grid-template-columns:
     var(--bracket-side-width, max-content)
@@ -773,7 +896,26 @@ button:disabled {
   justify-content: center;
 }
 
+.bracket-connectors {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.bracket-connectors path {
+  fill: none;
+  stroke: rgba(148, 163, 184, 0.46);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
 .bracket-side {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-auto-columns: minmax(16rem, 18rem);
   grid-auto-flow: column;
@@ -790,6 +932,8 @@ button:disabled {
 }
 
 .bracket-final-column {
+  position: relative;
+  z-index: 1;
   align-self: start;
   padding: 0 0.4rem;
 }
@@ -824,24 +968,6 @@ button:disabled {
     #0c1220;
   border: 1px solid rgba(94, 234, 212, 0.18);
   border-radius: 0.75rem;
-}
-
-.bracket-round-left article::after,
-.bracket-round-right article::after {
-  position: absolute;
-  top: 50%;
-  width: 1rem;
-  height: 1px;
-  background: rgba(148, 163, 184, 0.38);
-  content: "";
-}
-
-.bracket-round-left article::after {
-  right: -1.05rem;
-}
-
-.bracket-round-right article::after {
-  left: -1.05rem;
 }
 
 .bracket-round-center article {
@@ -928,6 +1054,17 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  main.setup-phase.choices-open,
+  main.setup-phase.choices-closed {
+    grid-template-columns: 1fr;
+  }
+
+  main.setup-phase.choices-open .bracket-panel,
+  main.setup-phase.choices-closed .bracket-panel,
+  main.setup-phase .setup-panel {
+    grid-column: 1;
+  }
+
   main>header {
     grid-column: 1;
   }
@@ -940,6 +1077,28 @@ button:disabled {
   .bracket-panel-header button,
   .bracket-panel-actions {
     width: 100%;
+  }
+
+  .setup-control-bar {
+    justify-content: stretch;
+  }
+
+  .setup-control-bar button {
+    flex: 1 1 auto;
+  }
+
+  .choice-drawer {
+    position: relative;
+    top: auto;
+    z-index: 1;
+    width: 100%;
+    max-height: min(70vh, 42rem);
+    border-radius: 0.85rem;
+  }
+
+  .choice-drawer-header {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .choice-entry-grid {
@@ -997,7 +1156,7 @@ button:disabled {
 
 @media (max-width: 560px) {
   main {
-    padding: 2rem 1rem;
+    padding: 0.75rem;
   }
 
   form {
@@ -1033,17 +1192,25 @@ button:disabled {
   }
 
   .choice-list li {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) minmax(5.4rem, 6rem) 2.15rem;
   }
 
-  .choice-list li label,
   .choice-list li select {
-    grid-column: 1;
+    grid-column: auto;
   }
 
   .choice-list li button {
-    grid-column: 2;
-    grid-row: 1 / 4;
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .setup-control-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .drawer-toggle-button {
+    width: 100%;
   }
 }
 
@@ -1082,6 +1249,7 @@ button:disabled {
 :root[data-theme="light"] main>header p,
 :root[data-theme="light"] section>p,
 :root[data-theme="light"] .bracket-panel-header p,
+:root[data-theme="light"] .choice-drawer-header p,
 :root[data-theme="light"] .import-summary,
 :root[data-theme="light"] .choice-list li label {
   color: #526174;
@@ -1130,6 +1298,7 @@ button:disabled {
 }
 
 :root[data-theme="light"] main>section,
+:root[data-theme="light"] .setup-control-bar,
 :root[data-theme="light"] .bracket-round article {
   background: rgba(255, 255, 255, 0.9);
   border-color: rgba(15, 118, 110, 0.18);
@@ -1147,6 +1316,7 @@ button:disabled {
 :root[data-theme="light"] select,
 :root[data-theme="light"] .choice-list li,
 :root[data-theme="light"] .quick-list-panel,
+:root[data-theme="light"] .drawer-toggle-button,
 :root[data-theme="light"] .template-panel,
 :root[data-theme="light"] .template-catalog li button,
 :root[data-theme="light"] .bracket-choice {

@@ -2,10 +2,9 @@
 
 ## Known Requirements To Verify Or Extend
 
-- Confirm whether the current 2-to-128 bracket limit is the desired long-term cap.
 - Define detailed login/profile requirements for the web version and future app version.
-- Set up Supabase authentication and user-scoped database storage.
-- Decide whether anonymous local-only usage should remain available alongside logged-in profiles.
+- Validate Supabase authentication and user-scoped database storage over continued real usage.
+- Revisit the 128-choice cap only if real usage shows the need for larger brackets.
 
 ## Proposed Technical Follow-Up
 

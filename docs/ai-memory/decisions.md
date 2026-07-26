@@ -14,6 +14,10 @@
 - Decision: User-specific choices, bracket progress, and personal configuration should be saved to the logged-in user's account, not only to browser-local storage.
 - Decision: User profiles should include personal preferences; the first confirmed preference is dark mode.
 - Decision: Use Supabase for authentication and user-scoped database storage.
+- Decision: Anonymous guest usage should remain available, but guest choices, brackets, and saved lists should not persist.
+- Decision: Small non-sensitive guest UI preferences, such as dark mode, may persist locally in `localStorage`.
 - Decision: Users should be able to save reusable choice-list templates, separate from the current active bracket progress.
 - Decision: Users should be able to save named bracket snapshots, separate from reusable list templates, so bracket progress can be reopened later.
-- Unknown: account recovery requirements and whether anonymous local usage remains supported.
+- Decision: Prioritize the public web app first because it can be used across devices; a native or installable app can be considered later.
+- Decision: Keep 128 choices as the current product cap unless real usage shows a need for more.
+- Unknown: account recovery requirements.
