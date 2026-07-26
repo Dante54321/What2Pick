@@ -1305,6 +1305,13 @@ button:disabled {
   box-shadow: 0 1rem 2.5rem rgba(15, 23, 42, 0.1);
 }
 
+:root[data-theme="light"] .choice-drawer-header {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94)),
+    #f8fafc;
+  border-bottom-color: rgba(100, 116, 139, 0.18);
+}
+
 :root[data-theme="light"] h2,
 :root[data-theme="light"] h3,
 :root[data-theme="light"] h4 {
