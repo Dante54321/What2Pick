@@ -53,6 +53,9 @@ Last updated: 2026-07-26
 
 ## Latest Session Notes
 
+- Replaced the individual-mode `Menu` action with a top-left arrow back button and shifted the logo right in the header.
+- Verified the back-arrow header in desktop and mobile Playwright screenshots.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 - Removed the `Signed in` label from the home account card so the signed-in email is the primary identifier.
 - Simplified the home mode cards to single-label actions (`Individual mode`, `Online mode`, `Settings`, and account state) with larger centered text.
 - Fixed signed-in email display on the home card by moving it to a dedicated line with safer line height so descenders are not clipped.

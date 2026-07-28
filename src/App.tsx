@@ -3022,6 +3022,15 @@ function App() {
     >
       <header>
         <div className="top-bar">
+          <button
+            type="button"
+            className="back-button"
+            onClick={openMainMenu}
+            aria-label="Back"
+          >
+            ←
+          </button>
+
           <div className="brand-lockup">
             <svg
               aria-hidden="true"
@@ -3057,14 +3066,6 @@ function App() {
           </div>
 
           <div className="top-controls">
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={openMainMenu}
-            >
-              Menu
-            </button>
-
             <label className="theme-toggle" htmlFor="dark-mode">
               <input
                 id="dark-mode"

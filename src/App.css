@@ -52,10 +52,29 @@ main>header {
 
 .top-bar {
   display: grid;
-  grid-template-columns: minmax(0, auto) minmax(18rem, 1fr);
+  grid-template-columns: auto minmax(0, auto) minmax(18rem, 1fr);
   gap: 1rem;
   align-items: start;
   width: 100%;
+}
+
+.back-button {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: inline-grid;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: #dbeafe;
+  background: rgba(15, 23, 42, 0.62);
+  border: 1px solid rgba(96, 165, 250, 0.34);
+  border-radius: 0.55rem;
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.back-button:hover:not(:disabled) {
+  background: #102a4c;
 }
 
 .brand-lockup {
@@ -1395,14 +1414,16 @@ button:disabled {
 
 @media (max-width: 720px) {
   .top-bar {
-    grid-template-columns: 1fr;
+    grid-template-columns: auto minmax(0, 1fr);
   }
 
   .brand-lockup {
-    justify-self: center;
+    min-width: 0;
+    justify-self: start;
   }
 
   .top-controls {
+    grid-column: 1 / -1;
     justify-content: center;
     flex-wrap: wrap;
   }
