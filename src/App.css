@@ -71,13 +71,13 @@ main>header {
   height: clamp(3rem, 8vw, 4.7rem);
   padding: 0.45rem;
   background:
-    linear-gradient(135deg, rgba(20, 184, 166, 0.18), transparent),
-    #0c1728;
-  border: 1px solid rgba(94, 234, 212, 0.38);
+    linear-gradient(135deg, rgba(37, 99, 235, 0.22), rgba(220, 38, 38, 0.1)),
+    #0b1730;
+  border: 1px solid rgba(96, 165, 250, 0.42);
   border-radius: 1rem;
   box-shadow:
     0 1rem 2.5rem rgba(0, 0, 0, 0.24),
-    inset 0 0 2rem rgba(20, 184, 166, 0.08);
+    inset 0 0 2rem rgba(37, 99, 235, 0.12);
 }
 
 .brand-path {
@@ -88,22 +88,22 @@ main>header {
 }
 
 .brand-path-left {
-  stroke: #2dd4bf;
+  stroke: #60a5fa;
 }
 
 .brand-path-right {
-  stroke: #f59e0b;
+  stroke: #ef4444;
 }
 
 .brand-node {
-  fill: #13233a;
+  fill: #13234a;
   stroke: #cbd5e1;
   stroke-width: 2.5;
 }
 
 .brand-core {
-  fill: #7c3aed;
-  stroke: #ddd6fe;
+  fill: #dc2626;
+  stroke: #fecaca;
   stroke-width: 2;
 }
 
@@ -119,7 +119,7 @@ h1 {
   margin: 0;
   font-size: clamp(2.5rem, 7vw, 4.5rem);
   line-height: 1;
-  background: linear-gradient(90deg, #ffffff, #99f6e4 45%, #fde68a);
+  background: linear-gradient(90deg, #ffffff, #93c5fd 45%, #fecaca);
   background-clip: text;
   color: transparent;
 }
@@ -156,7 +156,7 @@ main>header p {
   width: 1.05rem;
   height: 1.05rem;
   min-width: 1.05rem;
-  accent-color: #14b8a6;
+  accent-color: #dc2626;
 }
 
 .account-summary {
@@ -178,7 +178,7 @@ main>header p {
 
 .account-summary p[role="status"] {
   flex-basis: 100%;
-  color: #fde68a;
+  color: #fecaca;
 }
 
 .account-summary p span {
@@ -212,9 +212,9 @@ main>header p {
 }
 
 .secondary-button.selected {
-  color: #082f49;
-  background: #7dd3fc;
-  border-color: #38bdf8;
+  color: #eff6ff;
+  background: #1d4ed8;
+  border-color: #60a5fa;
 }
 
 .auth-phase {
@@ -264,14 +264,14 @@ main>header p {
   background:
     linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(8, 17, 31, 0.9)),
     #0c1220;
-  border: 1px solid rgba(94, 234, 212, 0.18);
+  border: 1px solid rgba(96, 165, 250, 0.2);
   border-radius: 0.65rem;
   text-align: left;
 }
 
 .mode-card:hover:not(:disabled) {
   background:
-    linear-gradient(180deg, rgba(19, 39, 61, 0.96), rgba(8, 17, 31, 0.94)),
+    linear-gradient(180deg, rgba(20, 43, 88, 0.96), rgba(8, 17, 31, 0.94)),
     #0c1220;
 }
 
@@ -290,8 +290,8 @@ main>header p {
 }
 
 .primary-mode-card {
-  border-color: rgba(245, 158, 11, 0.54);
-  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.12);
+  border-color: rgba(220, 38, 38, 0.6);
+  box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.16);
 }
 
 .account-mode-card {
@@ -333,7 +333,7 @@ main>header p {
   width: 1.2rem;
   height: 1.2rem;
   min-width: 1.2rem;
-  accent-color: #14b8a6;
+  accent-color: #dc2626;
 }
 
 .mode-placeholder {
@@ -425,9 +425,9 @@ main>header p {
 }
 
 .online-vote-options button.selected {
-  color: #fff7ed;
-  background: rgba(245, 158, 11, 0.18);
-  border-color: #f59e0b;
+  color: #fee2e2;
+  background: rgba(220, 38, 38, 0.2);
+  border-color: #ef4444;
 }
 
 .auth-screen {
@@ -492,13 +492,13 @@ main>header p {
 
 .auth-mode-switch button {
   padding: 0;
-  color: #5eead4;
+  color: #60a5fa;
   background: transparent;
   border: 0;
 }
 
 .auth-mode-switch button:hover:not(:disabled) {
-  color: #99f6e4;
+  color: #93c5fd;
   background: transparent;
   transform: none;
 }
@@ -508,7 +508,7 @@ main>section {
   background:
     linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(8, 17, 31, 0.92)),
     rgba(17, 24, 39, 0.88);
-  border: 1px solid rgba(94, 234, 212, 0.16);
+  border: 1px solid rgba(96, 165, 250, 0.18);
   border-radius: 0.5rem;
   box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.18);
 }
@@ -528,7 +528,7 @@ main>section {
   justify-content: flex-end;
   padding: 0.7rem;
   background: rgba(12, 18, 32, 0.86);
-  border: 1px solid rgba(94, 234, 212, 0.2);
+  border: 1px solid rgba(96, 165, 250, 0.24);
   border-radius: 0.65rem;
   box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.22);
   backdrop-filter: blur(14px);
@@ -541,11 +541,11 @@ main>section {
   min-width: 11rem;
   justify-content: space-between;
   background: #0c1220;
-  border-color: rgba(94, 234, 212, 0.34);
+  border-color: rgba(96, 165, 250, 0.38);
 }
 
 .drawer-toggle-button strong {
-  color: #99f6e4;
+  color: #93c5fd;
 }
 
 .choice-drawer {
@@ -606,7 +606,7 @@ main.playing-phase .bracket-panel {
 
 .bracket-panel-footer p {
   margin: 0;
-  color: #fde68a;
+  color: #fecaca;
   font-size: 0.88rem;
 }
 
@@ -717,7 +717,7 @@ form label {
   width: 1rem;
   height: 1rem;
   min-width: 1rem;
-  accent-color: #14b8a6;
+  accent-color: #dc2626;
 }
 
 input,
@@ -746,15 +746,15 @@ textarea {
 input:focus,
 textarea:focus,
 select:focus {
-  outline: 2px solid #8b5cf6;
+  outline: 2px solid #2563eb;
   outline-offset: 2px;
 }
 
 button {
   padding: 0.7rem 1rem;
   color: white;
-  background: #7c3aed;
-  border: 1px solid #8b5cf6;
+  background: #dc2626;
+  border: 1px solid #ef4444;
   border-radius: 0.55rem;
   font-weight: 700;
   transition:
@@ -763,7 +763,7 @@ button {
 }
 
 button:hover:not(:disabled) {
-  background: #8b5cf6;
+  background: #ef4444;
   transform: translateY(-1px);
 }
 
@@ -1010,8 +1010,8 @@ button:disabled {
 }
 
 .template-catalog li.selected button {
-  background: rgba(20, 184, 166, 0.14);
-  border-color: #14b8a6;
+  background: rgba(37, 99, 235, 0.16);
+  border-color: #2563eb;
 }
 
 .template-catalog strong,
@@ -1156,7 +1156,7 @@ button:disabled {
 
 .bracket-round h3 {
   margin: 0 0 0.8rem;
-  color: #d9f99d;
+  color: #bfdbfe;
   text-align: center;
 }
 
@@ -1167,20 +1167,20 @@ button:disabled {
   background:
     linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(12, 18, 32, 0.96)),
     #0c1220;
-  border: 1px solid rgba(94, 234, 212, 0.18);
+  border: 1px solid rgba(96, 165, 250, 0.2);
   border-radius: 0.75rem;
 }
 
 .bracket-round-center article {
-  border-color: rgba(245, 158, 11, 0.58);
+  border-color: rgba(220, 38, 38, 0.62);
   box-shadow:
-    0 0 0 1px rgba(245, 158, 11, 0.12),
+    0 0 0 1px rgba(220, 38, 38, 0.16),
     0 1rem 2.4rem rgba(0, 0, 0, 0.22);
 }
 
 .bracket-round article h4 {
   margin: 0 0 0.75rem;
-  color: #5eead4;
+  color: #60a5fa;
 }
 
 .bracket-choice {
@@ -1199,7 +1199,7 @@ button:disabled {
 }
 
 .bracket-choice strong {
-  color: #5eead4;
+  color: #60a5fa;
 }
 
 .bracket-choice span {
@@ -1209,16 +1209,16 @@ button:disabled {
 }
 
 .bracket-choice:hover:not(:disabled) {
-  background: #12313b;
-  border-color: #14b8a6;
+  background: #102a4c;
+  border-color: #2563eb;
   transform: none;
 }
 
 .bracket-choice.selected {
-  color: #fff7ed;
-  background: rgba(245, 158, 11, 0.18);
-  border-color: #f59e0b;
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.18);
+  color: #fee2e2;
+  background: rgba(220, 38, 38, 0.2);
+  border-color: #ef4444;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.2);
 }
 
 .bracket-choice:disabled {
@@ -1231,14 +1231,14 @@ button:disabled {
 .champion-result {
   margin-top: 1rem;
   padding: 0.85rem;
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid #f59e0b;
+  background: rgba(220, 38, 38, 0.16);
+  border: 1px solid #ef4444;
   border-radius: 0.65rem;
 }
 
 .champion-result p {
   margin: 0;
-  color: #fbbf24;
+  color: #fca5a5;
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -1247,7 +1247,7 @@ button:disabled {
 
 .champion-result h3 {
   margin: 0.3rem 0 0;
-  color: #fef3c7;
+  color: #fee2e2;
 }
 
 @media (max-width: 780px) {
@@ -1433,23 +1433,23 @@ button:disabled {
 
 :root[data-theme="light"] {
   color: #172033;
-  background-color: #eef4f8;
+  background-color: #eef4fb;
 }
 
 :root[data-theme="light"] body {
   background:
-    linear-gradient(115deg, rgba(20, 184, 166, 0.13), transparent 34%),
-    linear-gradient(245deg, rgba(245, 158, 11, 0.13), transparent 38%),
+    linear-gradient(115deg, rgba(37, 99, 235, 0.14), transparent 34%),
+    linear-gradient(245deg, rgba(220, 38, 38, 0.12), transparent 38%),
     linear-gradient(rgba(51, 65, 85, 0.08) 1px, transparent 1px),
     linear-gradient(90deg, rgba(51, 65, 85, 0.08) 1px, transparent 1px),
-    #eef4f8;
+    #eef4fb;
 }
 
 :root[data-theme="light"] .brand-mark {
   background:
-    linear-gradient(135deg, rgba(20, 184, 166, 0.2), transparent),
+    linear-gradient(135deg, rgba(37, 99, 235, 0.18), rgba(220, 38, 38, 0.08)),
     #ffffff;
-  border-color: rgba(15, 118, 110, 0.28);
+  border-color: rgba(37, 99, 235, 0.3);
 }
 
 :root[data-theme="light"] .brand-node {
@@ -1458,7 +1458,7 @@ button:disabled {
 }
 
 :root[data-theme="light"] h1 {
-  background: linear-gradient(90deg, #172033, #0f766e 45%, #b45309);
+  background: linear-gradient(90deg, #172033, #1d4ed8 45%, #b91c1c);
   background-clip: text;
   color: transparent;
 }
@@ -1493,7 +1493,7 @@ button:disabled {
 }
 
 :root[data-theme="light"] .account-summary p[role="status"] {
-  color: #92400e;
+  color: #b91c1c;
 }
 
 :root[data-theme="light"] .account-summary strong {
@@ -1519,7 +1519,7 @@ button:disabled {
 :root[data-theme="light"] .mode-card,
 :root[data-theme="light"] .bracket-round article {
   background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(15, 118, 110, 0.18);
+  border-color: rgba(37, 99, 235, 0.2);
   box-shadow: 0 1rem 2.5rem rgba(15, 23, 42, 0.1);
 }
 
@@ -1587,8 +1587,8 @@ button:disabled {
 }
 
 :root[data-theme="light"] .template-catalog li.selected button {
-  background: #ccfbf1;
-  border-color: #14b8a6;
+  background: #dbeafe;
+  border-color: #2563eb;
 }
 
 :root[data-theme="light"] .template-catalog strong {
@@ -1600,23 +1600,23 @@ button:disabled {
 }
 
 :root[data-theme="light"] .bracket-round h3 {
-  color: #365314;
+  color: #1d4ed8;
 }
 
 :root[data-theme="light"] .bracket-round article h4,
 :root[data-theme="light"] .bracket-choice strong {
-  color: #0f766e;
+  color: #1d4ed8;
 }
 
 :root[data-theme="light"] .bracket-choice:hover:not(:disabled) {
-  background: #e6fffb;
-  border-color: #14b8a6;
+  background: #eff6ff;
+  border-color: #2563eb;
 }
 
 :root[data-theme="light"] .bracket-choice.selected {
-  color: #7c2d12;
-  background: rgba(245, 158, 11, 0.2);
-  border-color: #d97706;
+  color: #991b1b;
+  background: rgba(220, 38, 38, 0.16);
+  border-color: #dc2626;
 }
 
 :root[data-theme="light"] .bracket-scrollbar,
@@ -1626,9 +1626,9 @@ button:disabled {
 }
 
 :root[data-theme="light"] .champion-result {
-  background: rgba(245, 158, 11, 0.16);
+  background: rgba(220, 38, 38, 0.14);
 }
 
 :root[data-theme="light"] .champion-result h3 {
-  color: #7c2d12;
+  color: #991b1b;
 }

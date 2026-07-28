@@ -53,6 +53,8 @@ Last updated: 2026-07-26
 
 ## Latest Session Notes
 
+- Updated the app visual theme so red and blue are the primary brand colors across dark and light themes.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 - Added Vitest, jsdom, React Testing Library, user-event, and jest-dom.
 - Added `npm run test` and `npm run test:watch`.
 - Added initial tests for adding four games, duplicate fixed position prevention, semifinal winner advancement, champion selection, and champion reset.
