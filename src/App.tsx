@@ -545,6 +545,7 @@ function App() {
   const [activeTemplateId, setActiveTemplateId] = useState('')
   const [renameTemplateName, setRenameTemplateName] = useState('')
   const [templateScreenOpen, setTemplateScreenOpen] = useState(false)
+  const [quickListSaveOpen, setQuickListSaveOpen] = useState(false)
   const [templateSortMode, setTemplateSortMode] =
     useState<TemplateSortMode>('recent')
   const [templateMessage, setTemplateMessage] = useState('')
@@ -1310,6 +1311,7 @@ function App() {
     setActiveTemplateId(savedTemplate.id)
     setRenameTemplateName(savedTemplate.name)
     setTemplateName('')
+    setQuickListSaveOpen(false)
     setTemplateMessage('Template saved.')
   }
 
@@ -1469,7 +1471,19 @@ function App() {
 
     setSelectedTemplateId(templateId)
     setRenameTemplateName(template?.name ?? '')
+    setQuickListSaveOpen(false)
     setTemplateMessage('')
+  }
+
+  function saveQuickChoiceList() {
+    if (selectedTemplateId) {
+      void updateChoiceTemplate()
+      return
+    }
+
+    setTemplateName('')
+    setTemplateMessage('')
+    setQuickListSaveOpen(true)
   }
 
   function hasDuplicateTemplateName(name: string, ignoredTemplateId?: string) {
@@ -3125,6 +3139,23 @@ function App() {
       {!bracketStarted && (
         <>
           <section className="setup-control-bar" aria-label="Choice controls">
+            <div className="mobile-view-switch" aria-label="Setup view">
+              <button
+                type="button"
+                className={choiceDrawerOpen ? 'selected' : undefined}
+                onClick={() => setChoiceDrawerOpen(true)}
+              >
+                Choices
+              </button>
+              <button
+                type="button"
+                className={!choiceDrawerOpen ? 'selected' : undefined}
+                onClick={() => setChoiceDrawerOpen(false)}
+              >
+                Bracket
+              </button>
+            </div>
+
             <button
               type="button"
               className="drawer-toggle-button"
@@ -3147,13 +3178,42 @@ function App() {
               Add
             </button>
 
+            {session && (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setBracketScreenOpen(true)}
+              >
+                My brackets
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={shuffleRandomChoices}
+              disabled={randomChoicesCount < 2}
+            >
+              Shuffle
+            </button>
+
             <button
               type="button"
               onClick={toggleBracket}
               disabled={!canStartBracket}
             >
-              Start
+              Start bracket
             </button>
+
+            {choices.length > 0 && (
+              <button
+                type="button"
+                className="danger-button"
+                onClick={startOver}
+              >
+                Start over
+              </button>
+            )}
           </section>
 
           {choiceDrawerOpen && (
@@ -3325,36 +3385,36 @@ function App() {
                 <strong>{activeTemplate?.name ?? 'None selected'}</strong>
               </div>
 
-              <select
-                aria-label="Saved list"
-                value={selectedTemplateId}
-                onChange={(event) => selectChoiceTemplate(event.target.value)}
-                disabled={templateLoading || choiceTemplates.length === 0}
-              >
-                <option value="">Choose a saved list</option>
-                {sortedChoiceTemplates.map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.name} ({template.choiceNames.length})
-                    {template.id === activeTemplateId ? ' - active' : ''}
-                  </option>
-                ))}
-              </select>
+              {choiceTemplates.length > 0 && (
+                  <select
+                    aria-label="Saved list"
+                    value={selectedTemplateId}
+                    onChange={(event) => selectChoiceTemplate(event.target.value)}
+                    disabled={templateLoading}
+                  >
+                    <option value="">Choose a saved list</option>
+                    {sortedChoiceTemplates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name} ({template.choiceNames.length})
+                        {template.id === activeTemplateId ? ' - active' : ''}
+                      </option>
+                    ))}
+                  </select>
+              )}
 
+              {choiceTemplates.length > 0 && (
+                <button
+                  type="button"
+                  onClick={loadChoiceTemplate}
+                  disabled={templateLoading || !selectedTemplateId}
+                >
+                  Load
+                </button>
+              )}
               <button
                 type="button"
-                onClick={loadChoiceTemplate}
-                disabled={templateLoading || !selectedTemplateId}
-              >
-                Load
-              </button>
-              <button
-                type="button"
-                onClick={updateChoiceTemplate}
-                disabled={
-                  templateLoading ||
-                  !selectedTemplateId ||
-                  choices.length === 0
-                }
+                onClick={saveQuickChoiceList}
+                disabled={templateLoading || choices.length === 0}
               >
                 Save
               </button>
@@ -3365,43 +3425,37 @@ function App() {
               >
                 Edit lists
               </button>
+              {quickListSaveOpen && (
+                <form
+                  className="quick-list-save-form"
+                  onSubmit={saveChoiceTemplate}
+                >
+                  <label htmlFor="quick-template-name">New list name</label>
+                  <input
+                    id="quick-template-name"
+                    type="text"
+                    placeholder="Example: Weekend picks"
+                    value={templateName}
+                    onChange={(event) => setTemplateName(event.target.value)}
+                    disabled={templateLoading}
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={
+                      templateLoading ||
+                      templateName.trim().length === 0 ||
+                      choices.length === 0
+                    }
+                  >
+                    Save new list
+                  </button>
+                </form>
+              )}
+              {templateMessage && <p role="status">{templateMessage}</p>}
             </section>
           )}
 
-          <div className="setup-actions">
-            {session && (
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => setBracketScreenOpen(true)}
-              >
-                My brackets
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={shuffleRandomChoices}
-              disabled={bracketStarted || randomChoicesCount < 2}
-            >
-              Shuffle random choices
-            </button>
-            <button
-              type="button"
-              onClick={toggleBracket}
-              disabled={!bracketStarted && !canStartBracket}
-            >
-              {bracketStarted ? 'Edit bracket setup' : 'Start bracket'}
-            </button>
-            {choices.length > 0 && (
-              <button
-                type="button"
-                className="danger-button"
-                onClick={startOver}
-              >
-                Start over
-              </button>
-            )}
-          </div>
             </section>
           )}
         </>

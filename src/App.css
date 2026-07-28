@@ -599,6 +599,7 @@ main>section {
   top: 0.75rem;
   z-index: 12;
   display: flex;
+  flex-wrap: wrap;
   gap: 0.65rem;
   align-items: center;
   justify-content: flex-end;
@@ -610,11 +611,20 @@ main>section {
   backdrop-filter: blur(14px);
 }
 
+.setup-control-bar>button {
+  flex: 0 1 auto;
+}
+
+.mobile-view-switch {
+  display: none;
+}
+
 .drawer-toggle-button {
   display: inline-flex;
   gap: 0.65rem;
   align-items: center;
   min-width: 11rem;
+  flex: 1 1 13rem;
   justify-content: space-between;
   background: #0c1220;
   border-color: rgba(96, 165, 250, 0.38);
@@ -980,6 +990,34 @@ button:disabled {
   grid-template-columns: 1fr;
 }
 
+.quick-list-save-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  align-items: end;
+  margin: 0;
+}
+
+.quick-list-save-form label {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.quick-list-save-form input {
+  min-width: 0;
+  padding: 0.65rem;
+}
+
+.quick-list-panel p[role="status"] {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #fecaca;
+  font-size: 0.85rem;
+}
+
 .quick-list-summary {
   min-width: 0;
 }
@@ -1342,6 +1380,10 @@ button:disabled {
     grid-column: 1;
   }
 
+  main.setup-phase.choices-open .bracket-panel {
+    display: none;
+  }
+
   main>header {
     grid-column: 1;
   }
@@ -1358,6 +1400,36 @@ button:disabled {
 
   .setup-control-bar {
     justify-content: stretch;
+  }
+
+  .mobile-view-switch {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem;
+    padding: 0.25rem;
+    background: #0c1220;
+    border: 1px solid rgba(96, 165, 250, 0.24);
+    border-radius: 0.6rem;
+  }
+
+  .mobile-view-switch button {
+    min-height: 2.45rem;
+    padding: 0.55rem 0.7rem;
+    color: #cbd5e1;
+    background: transparent;
+    border-color: transparent;
+    transition: none;
+  }
+
+  .mobile-view-switch button.selected {
+    color: #ffffff;
+    background: #1d4ed8;
+    border-color: #60a5fa;
+  }
+
+  .drawer-toggle-button {
+    display: none;
   }
 
   .setup-control-bar button {
@@ -1387,6 +1459,7 @@ button:disabled {
   }
 
   .quick-list-summary,
+  .quick-list-save-form,
   .quick-list-panel select {
     grid-column: 1 / -1;
   }

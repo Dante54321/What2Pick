@@ -53,6 +53,15 @@ Last updated: 2026-07-26
 
 ## Latest Session Notes
 
+- Added a mobile-only `Choices` / `Bracket` setup switch so phone users can view one setup section at a time instead of scrolling through both.
+- Verified the mobile bracket tab visually and ensured the active tab state changes instantly.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Changed the quick saved-list strip so `Save` is enabled with current choices even when no list is selected; pressing it opens an inline name field to create a new saved list, while selected lists still update normally.
+- Added a quick `Save new list` form to the saved-list strip when a signed-in user has no saved lists yet.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Moved setup workflow actions out of the choices drawer and into the setup control bar so the drawer only manages the choice list, entry form, and saved-list controls.
+- Verified the updated individual-mode layout in desktop and mobile Playwright screenshots.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 - Replaced the individual-mode `Menu` action with a top-left arrow back button and shifted the logo right in the header.
 - Verified the back-arrow header in desktop and mobile Playwright screenshots.
 - Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
