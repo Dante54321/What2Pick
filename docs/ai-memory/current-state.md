@@ -53,6 +53,14 @@ Last updated: 2026-07-26
 
 ## Latest Session Notes
 
+- Removed the `Signed in` label from the home account card so the signed-in email is the primary identifier.
+- Simplified the home mode cards to single-label actions (`Individual mode`, `Online mode`, `Settings`, and account state) with larger centered text.
+- Fixed signed-in email display on the home card by moving it to a dedicated line with safer line height so descenders are not clipped.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
+- Reworked the home screen into a centered vertical mode list with more compact cards and centered text.
+- Replaced the W-shaped logo with a red/blue overlapping-choice mark and gave the What2Pick title a more distinctive styled `2`.
+- Verified the redesigned home screen in desktop and mobile Playwright screenshots.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 - Updated the app visual theme so red and blue are the primary brand colors across dark and light themes.
 - Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 - Added Vitest, jsdom, React Testing Library, user-event, and jest-dom.

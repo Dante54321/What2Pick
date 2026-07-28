@@ -2673,20 +2673,31 @@ function App() {
               className="brand-mark"
               viewBox="0 0 64 64"
             >
-              <path
-                d="M14 15h12c6 0 10 4 10 10v14c0 6 4 10 10 10h4"
-                className="brand-path brand-path-left"
+              <rect
+                x="13"
+                y="12"
+                width="24"
+                height="34"
+                rx="7"
+                transform="rotate(-13 25 29)"
+                className="brand-card brand-card-blue"
               />
-              <path
-                d="M50 15H38c-6 0-10 4-10 10v14c0 6-4 10-10 10h-4"
-                className="brand-path brand-path-right"
+              <rect
+                x="27"
+                y="12"
+                width="24"
+                height="34"
+                rx="7"
+                transform="rotate(13 39 29)"
+                className="brand-card brand-card-red"
               />
-              <circle cx="14" cy="15" r="5" className="brand-node" />
-              <circle cx="50" cy="15" r="5" className="brand-node" />
-              <circle cx="32" cy="32" r="6" className="brand-core" />
-              <path d="m28 32 3 3 6-7" className="brand-check" />
+              <circle cx="32" cy="33" r="13" className="brand-ring" />
+              <circle cx="32" cy="33" r="8" className="brand-core" />
+              <path d="m27.5 33 3.2 3.2 6.8-8" className="brand-check" />
             </svg>
-            <h1>What2Pick</h1>
+            <h1 className="brand-title">
+              What<span className="brand-title-two">2</span>Pick
+            </h1>
           </div>
         </header>
 
@@ -2696,8 +2707,7 @@ function App() {
             className="mode-card primary-mode-card"
             onClick={() => setAppMode('individual')}
           >
-            <span>Individual mode</span>
-            <strong>Bracket</strong>
+            <strong>Individual mode</strong>
           </button>
 
           <button
@@ -2705,8 +2715,7 @@ function App() {
             className="mode-card"
             onClick={() => setAppMode('online')}
           >
-            <span>Online mode</span>
-            <strong>Voting</strong>
+            <strong>Online mode</strong>
           </button>
 
           <button
@@ -2714,23 +2723,20 @@ function App() {
             className="mode-card"
             onClick={() => setAppMode('settings')}
           >
-            <span>Settings</span>
-            <strong>Theme</strong>
+            <strong>Settings</strong>
           </button>
 
           {isSupabaseConfigured ? (
             session ? (
               <section className="mode-card account-mode-card">
-                <span>Signed in</span>
-                <strong>{session.user.email}</strong>
+                <p className="account-email">{session.user.email}</p>
                 <button type="button" onClick={signOut} disabled={authLoading}>
                   Sign out
                 </button>
               </section>
             ) : (
               <section className="mode-card account-mode-card">
-                <span>Account</span>
-                <strong>Sync</strong>
+                <strong>Account</strong>
                 <div className="account-actions">
                   <button type="button" onClick={() => openAuthScreen('login')}>
                     Log in
@@ -2747,8 +2753,8 @@ function App() {
             )
           ) : (
             <section className="mode-card account-mode-card">
-              <span>Account</span>
-              <strong>Not configured</strong>
+              <strong>Account</strong>
+              <p className="account-email">Not configured</p>
             </section>
           )}
         </section>
@@ -3022,21 +3028,32 @@ function App() {
               className="brand-mark"
               viewBox="0 0 64 64"
             >
-              <path
-                d="M14 15h12c6 0 10 4 10 10v14c0 6 4 10 10 10h4"
-                className="brand-path brand-path-left"
+              <rect
+                x="13"
+                y="12"
+                width="24"
+                height="34"
+                rx="7"
+                transform="rotate(-13 25 29)"
+                className="brand-card brand-card-blue"
               />
-              <path
-                d="M50 15H38c-6 0-10 4-10 10v14c0 6-4 10-10 10h-4"
-                className="brand-path brand-path-right"
+              <rect
+                x="27"
+                y="12"
+                width="24"
+                height="34"
+                rx="7"
+                transform="rotate(13 39 29)"
+                className="brand-card brand-card-red"
               />
-              <circle cx="14" cy="15" r="5" className="brand-node" />
-              <circle cx="50" cy="15" r="5" className="brand-node" />
-              <circle cx="32" cy="32" r="6" className="brand-core" />
-              <path d="m28 32 3 3 6-7" className="brand-check" />
+              <circle cx="32" cy="33" r="13" className="brand-ring" />
+              <circle cx="32" cy="33" r="8" className="brand-core" />
+              <path d="m27.5 33 3.2 3.2 6.8-8" className="brand-check" />
             </svg>
 
-            <h1>What2Pick</h1>
+            <h1 className="brand-title">
+              What<span className="brand-title-two">2</span>Pick
+            </h1>
           </div>
 
           <div className="top-controls">
