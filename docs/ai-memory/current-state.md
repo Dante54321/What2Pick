@@ -53,6 +53,8 @@ Last updated: 2026-08-02
 
 ## Latest Session Notes
 
+- Changed the Online mode entry action layout so `Create room` and `Join room` are stacked vertically on desktop and mobile.
+- Verified `npm.cmd run build` and `npm.cmd run lint` pass, and checked the Online entry layout with a desktop Playwright screenshot.
 - Split Online mode entry into a first-step choice between `Create room` and `Join room`, with each form on its own focused screen.
 - Invite links with `?room=CODE` now open directly into the Online `Join room` screen with the room code prefilled.
 - Online room create/update errors now point users to running the updated Supabase schema when persistence fails.
