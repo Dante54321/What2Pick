@@ -572,6 +572,8 @@ function App() {
   const [winnerByMatchId, setWinnerByMatchId] = useState<
     Record<string, string>
   >({})
+  const [autoFocusSelection, setAutoFocusSelection] = useState(true)
+  const [bracketZoom, setBracketZoom] = useState(100)
   const [settings, setSettings] = useState<UserSettings>(persistedSettings)
   const [session, setSession] = useState<Session | null>(null)
   const [userStateLoaded, setUserStateLoaded] = useState(false)
@@ -708,6 +710,38 @@ function App() {
   const champion = finalMatch
     ? choices.find((choice) => choice.id === winnerByMatchId[finalMatch.id])
     : undefined
+  const currentSelectionMatch = useMemo(() => {
+    if (!bracketStarted) {
+      return undefined
+    }
+
+    for (const round of bracketRounds) {
+      for (const match of round.matches) {
+        if (winnerByMatchId[match.id]) {
+          continue
+        }
+
+        const isReady = match.participants.every((participant) => {
+          if (participant.type === 'choice') {
+            return true
+          }
+
+          return Boolean(
+            choices.find(
+              (choice) => choice.id === winnerByMatchId[participant.matchId],
+            ),
+          )
+        })
+
+        if (isReady) {
+          return match
+        }
+      }
+    }
+
+    return undefined
+  }, [bracketRounds, bracketStarted, choices, winnerByMatchId])
+  const activeSelectionMatchId = currentSelectionMatch?.id
   const randomChoicesCount = choices.filter(
     (choice) => choice.position === 'random',
   ).length
@@ -1083,7 +1117,12 @@ function App() {
     const scrollbar = bracketScrollbarRef.current
     const viewport = bracketViewportRef.current
 
-    if (!scrollbar || !viewport || bracketColumnCount <= 1) {
+    if (
+      !scrollbar ||
+      !viewport ||
+      bracketColumnCount <= 1 ||
+      (bracketStarted && autoFocusSelection && activeSelectionMatchId)
+    ) {
       return
     }
 
@@ -1094,7 +1133,51 @@ function App() {
       viewport.scrollLeft = centeredScrollLeft
       scrollbar.scrollLeft = centeredScrollLeft
     })
-  }, [bracketColumnCount, choices.length])
+  }, [
+    activeSelectionMatchId,
+    autoFocusSelection,
+    bracketColumnCount,
+    bracketStarted,
+    choices.length,
+    bracketZoom,
+  ])
+
+  useEffect(() => {
+    if (!bracketStarted || !autoFocusSelection || !activeSelectionMatchId) {
+      return
+    }
+
+    requestAnimationFrame(() => {
+      const matchElement = matchElementRefs.current.get(activeSelectionMatchId)
+      const viewport = bracketViewportRef.current
+      const scrollbar = bracketScrollbarRef.current
+
+      if (!matchElement || !viewport) {
+        return
+      }
+
+      const viewportRect = viewport.getBoundingClientRect()
+      const matchRect = matchElement.getBoundingClientRect()
+      const nextScrollLeft =
+        viewport.scrollLeft +
+        matchRect.left -
+        viewportRect.left -
+        (viewport.clientWidth - matchRect.width) / 2
+
+      viewport.scrollLeft = Math.max(0, nextScrollLeft)
+
+      requestAnimationFrame(() => {
+        if (scrollbar) {
+          scrollbar.scrollLeft = viewport.scrollLeft
+        }
+      })
+    })
+  }, [
+    activeSelectionMatchId,
+    autoFocusSelection,
+    bracketStarted,
+    bracketZoom,
+  ])
 
   useLayoutEffect(() => {
     const arena = bracketArenaRef.current
@@ -1185,7 +1268,7 @@ function App() {
       viewport?.removeEventListener('scroll', scheduleUpdate)
       window.removeEventListener('resize', scheduleUpdate)
     }
-  }, [connectorRelations])
+  }, [connectorRelations, bracketZoom])
 
   useEffect(() => {
     if (appMode !== 'online' || !onlineRoom || !supabase) {
@@ -2166,6 +2249,11 @@ function App() {
 
             return (
               <article
+                className={
+                  match.id === activeSelectionMatchId
+                    ? 'active-selection-match'
+                    : undefined
+                }
                 data-match-id={match.id}
                 key={match.id}
                 ref={(element) => {
@@ -3079,61 +3167,63 @@ function App() {
             </h1>
           </div>
 
-          <div className="top-controls">
-            <label className="theme-toggle" htmlFor="dark-mode">
-              <input
-                id="dark-mode"
-                type="checkbox"
-                checked={settings.darkMode}
-                onChange={(event) => updateDarkMode(event.target.checked)}
-              />
-              Dark mode
-            </label>
+          {!bracketStarted && (
+            <div className="top-controls">
+              <label className="theme-toggle" htmlFor="dark-mode">
+                <input
+                  id="dark-mode"
+                  type="checkbox"
+                  checked={settings.darkMode}
+                  onChange={(event) => updateDarkMode(event.target.checked)}
+                />
+                Dark mode
+              </label>
 
-            <section className="account-summary" aria-label="User account">
-              {isSupabaseConfigured ? (
-                session ? (
-                  <>
-                    <p>
-                      <span>Signed in</span>
-                      <strong>{session.user.email}</strong>
-                    </p>
-                    <button
-                      type="button"
-                      onClick={signOut}
-                      disabled={authLoading}
-                    >
-                      Sign out
-                    </button>
-                  </>
+              <section className="account-summary" aria-label="User account">
+                {isSupabaseConfigured ? (
+                  session ? (
+                    <>
+                      <p>
+                        <span>Signed in</span>
+                        <strong>{session.user.email}</strong>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={signOut}
+                        disabled={authLoading}
+                      >
+                        Sign out
+                      </button>
+                    </>
+                  ) : (
+                    <div className="account-actions">
+                      <button
+                        type="button"
+                        onClick={() => openAuthScreen('login')}
+                      >
+                        Log in
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => openAuthScreen('signup')}
+                      >
+                        Create account
+                      </button>
+                    </div>
+                  )
                 ) : (
-                  <div className="account-actions">
-                    <button
-                      type="button"
-                      onClick={() => openAuthScreen('login')}
-                    >
-                      Log in
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={() => openAuthScreen('signup')}
-                    >
-                      Create account
-                    </button>
-                  </div>
-                )
-              ) : (
-                <p>Login is not configured.</p>
-              )}
+                  <p>Login is not configured.</p>
+                )}
 
-              {session && syncMessage && <p role="status">{syncMessage}</p>}
-              {authMessage && <p role="status">{authMessage}</p>}
-            </section>
-          </div>
+                {session && syncMessage && <p role="status">{syncMessage}</p>}
+                {authMessage && <p role="status">{authMessage}</p>}
+              </section>
+            </div>
+          )}
         </div>
 
-        <p>Create a bracket. Make your choice.</p>
+        {!bracketStarted && <p>Create a bracket. Make your choice.</p>}
       </header>
 
       {!bracketStarted && (
@@ -3475,16 +3565,22 @@ function App() {
 
           {bracketStarted && (
             <div className="bracket-panel-actions">
-              <button type="button" onClick={toggleBracket}>
-                Edit bracket setup
-              </button>
               <button
                 type="button"
-                className="danger-button"
-                onClick={startOver}
+                className="secondary-button"
+                onClick={toggleBracket}
               >
-                Start over
+                Edit bracket setup
               </button>
+              {champion && (
+                <button
+                  type="button"
+                  className="danger-button"
+                  onClick={startOver}
+                >
+                  Start over
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -3493,20 +3589,54 @@ function App() {
           <p>Add at least {MIN_BRACKET_ITEMS} choices to preview the bracket.</p>
         ) : (
           <>
-            <p>
-              {reductionRoundPlans.length > 0 ? (
-                <>
-                  Reducing over {reductionRoundPlans.length} round
-                  {reductionRoundPlans.length === 1 ? '' : 's'} with{' '}
-                  {reductionPairMatchesCount} two-player match
-                  {reductionPairMatchesCount === 1 ? '' : 'es'} and{' '}
-                  {reductionTripleMatchesCount} three-way match
-                  {reductionTripleMatchesCount === 1 ? '' : 'es'}.
-                </>
-              ) : (
-                'This bracket uses only two-player matches.'
-              )}
-            </p>
+            {!bracketStarted && (
+              <p>
+                {reductionRoundPlans.length > 0 ? (
+                  <>
+                    Reducing over {reductionRoundPlans.length} round
+                    {reductionRoundPlans.length === 1 ? '' : 's'} with{' '}
+                    {reductionPairMatchesCount} two-player match
+                    {reductionPairMatchesCount === 1 ? '' : 'es'} and{' '}
+                    {reductionTripleMatchesCount} three-way match
+                    {reductionTripleMatchesCount === 1 ? '' : 'es'}.
+                  </>
+                ) : (
+                  'This bracket uses only two-player matches.'
+                )}
+              </p>
+            )}
+
+            {bracketStarted && (
+              <div className="selection-toolbar" aria-label="Selection controls">
+                <label htmlFor="auto-focus-selection">
+                  <input
+                    id="auto-focus-selection"
+                    type="checkbox"
+                    checked={autoFocusSelection}
+                    onChange={(event) =>
+                      setAutoFocusSelection(event.target.checked)
+                    }
+                  />
+                  Auto focus
+                </label>
+
+                <label className="zoom-control" htmlFor="bracket-zoom">
+                  <span>Zoom</span>
+                  <input
+                    id="bracket-zoom"
+                    type="range"
+                    min="55"
+                    max="125"
+                    step="5"
+                    value={bracketZoom}
+                    onChange={(event) =>
+                      setBracketZoom(Number(event.target.value))
+                    }
+                  />
+                  <strong>{bracketZoom}%</strong>
+                </label>
+              </div>
+            )}
 
             <div
               className="bracket-scrollbar"
@@ -3533,6 +3663,9 @@ function App() {
                 ref={bracketArenaRef}
                 style={{
                   '--bracket-side-width': `${bracketSideWidthRem}rem`,
+                  '--bracket-zoom': bracketStarted
+                    ? bracketZoom / 100
+                    : 1,
                 } as CSSProperties}
               >
                 {bracketConnectors.length > 0 && (
@@ -3587,7 +3720,7 @@ function App() {
               </div>
             )}
 
-            {session && (
+            {session && (!bracketStarted || champion) && (
               <div className="bracket-panel-footer">
                 {savedBracketMessage && (
                   <p role="status">{savedBracketMessage}</p>

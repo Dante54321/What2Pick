@@ -15,6 +15,7 @@ main {
 main.playing-phase {
   width: 100%;
   grid-template-columns: 1fr;
+  gap: 0.8rem;
 }
 
 main.setup-phase.choices-open {
@@ -56,6 +57,20 @@ main>header {
   gap: 1rem;
   align-items: start;
   width: 100%;
+}
+
+main.playing-phase .top-bar {
+  grid-template-columns: auto minmax(0, auto);
+}
+
+main.playing-phase .brand-mark {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.75rem;
+}
+
+main.playing-phase .brand-title {
+  font-size: clamp(2rem, 5vw, 3rem);
 }
 
 .back-button {
@@ -668,6 +683,7 @@ main>section {
 
 main.playing-phase .bracket-panel {
   grid-column: 1;
+  min-height: calc(100vh - 7rem);
 }
 
 .bracket-panel-header {
@@ -721,6 +737,51 @@ main.playing-phase .bracket-panel {
 .bracket-panel-header button,
 .bracket-panel-actions {
   flex: 0 0 auto;
+}
+
+.selection-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0.75rem 0;
+  padding: 0.7rem 0.85rem;
+  background: rgba(12, 18, 32, 0.72);
+  border: 1px solid rgba(96, 165, 250, 0.22);
+  border-radius: 0.5rem;
+}
+
+.selection-toolbar label {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.selection-toolbar input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  min-width: 1rem;
+  accent-color: #dc2626;
+}
+
+.zoom-control {
+  flex: 1 1 18rem;
+  justify-content: flex-end;
+}
+
+.zoom-control input[type="range"] {
+  max-width: 18rem;
+  accent-color: #2563eb;
+}
+
+.zoom-control strong {
+  min-width: 3.1rem;
+  color: #f8fafc;
+  text-align: right;
 }
 
 h2,
@@ -1209,6 +1270,7 @@ button:disabled {
     var(--bracket-side-width, max-content);
   gap: 1.25rem;
   justify-content: center;
+  zoom: var(--bracket-zoom, 1);
 }
 
 .bracket-connectors {
@@ -1283,6 +1345,26 @@ button:disabled {
     #0c1220;
   border: 1px solid rgba(96, 165, 250, 0.2);
   border-radius: 0.75rem;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+}
+
+.bracket-round article.active-selection-match {
+  border-color: #60a5fa;
+  box-shadow:
+    0 0 0 2px rgba(96, 165, 250, 0.28),
+    0 1rem 2.4rem rgba(37, 99, 235, 0.2);
+}
+
+main.playing-phase .bracket-round article:not(.active-selection-match) {
+  opacity: 0.58;
+}
+
+main.playing-phase .bracket-round article:has(.selected),
+main.playing-phase .bracket-round article.active-selection-match {
+  opacity: 1;
 }
 
 .bracket-round-center article {
@@ -1612,6 +1694,7 @@ button:disabled {
 }
 
 :root[data-theme="light"] .theme-toggle,
+:root[data-theme="light"] .selection-toolbar label,
 :root[data-theme="light"] .bulk-mode-toggle,
 :root[data-theme="light"] .quick-save-bracket-form label,
 :root[data-theme="light"] form label {
@@ -1655,6 +1738,7 @@ button:disabled {
 
 :root[data-theme="light"] main>section,
 :root[data-theme="light"] .setup-control-bar,
+:root[data-theme="light"] .selection-toolbar,
 :root[data-theme="light"] .mode-card,
 :root[data-theme="light"] .bracket-round article {
   background: rgba(255, 255, 255, 0.9);
@@ -1756,6 +1840,17 @@ button:disabled {
   color: #991b1b;
   background: rgba(220, 38, 38, 0.16);
   border-color: #dc2626;
+}
+
+:root[data-theme="light"] .zoom-control strong {
+  color: #172033;
+}
+
+:root[data-theme="light"] .bracket-round article.active-selection-match {
+  border-color: #2563eb;
+  box-shadow:
+    0 0 0 2px rgba(37, 99, 235, 0.18),
+    0 1rem 2.4rem rgba(37, 99, 235, 0.12);
 }
 
 :root[data-theme="light"] .bracket-scrollbar,

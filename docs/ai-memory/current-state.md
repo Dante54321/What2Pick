@@ -53,6 +53,9 @@ Last updated: 2026-07-26
 
 ## Latest Session Notes
 
+- Added a focused selection mode for started individual brackets: the next ready match is highlighted and auto-centered after each pick, with an `Auto focus` checkbox to disable/re-enable that behavior.
+- Added a bracket zoom slider in the started-bracket view and reduced selection-phase chrome by hiding account/theme/setup summary controls and deferring `Start over`/quick save until after a champion is selected.
+- Verified `npm.cmd run test`, `npm.cmd run build`, and `npm.cmd run lint` pass.
 - Added a mobile-only `Choices` / `Bracket` setup switch so phone users can view one setup section at a time instead of scrolling through both.
 - Verified the mobile bracket tab visually and ensured the active tab state changes instantly.
 - Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
