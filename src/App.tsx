@@ -137,6 +137,7 @@ type UserSettings = {
 
 type AuthMode = 'login' | 'signup'
 type AppMode = 'home' | 'individual' | 'online' | 'settings'
+type OnlineEntryMode = 'menu' | 'create' | 'join'
 type TemplateSortMode = 'recent' | 'name'
 type SavedBracketSortMode = 'recent' | 'name'
 
@@ -459,6 +460,10 @@ function normalizeOnlineRoomSettings(value: unknown): OnlineRoomSettings {
   }
 }
 
+function getOnlineRoomErrorMessage(action: 'create' | 'update') {
+  return `Could not ${action} the room. Confirm the updated Supabase schema has been run.`
+}
+
 function readPersistedSettings(): UserSettings {
   if (typeof window === 'undefined') {
     return {
@@ -664,6 +669,8 @@ function App() {
   const [savedBracketLoading, setSavedBracketLoading] = useState(false)
   const [quickSaveOpen, setQuickSaveOpen] = useState(false)
   const [onlineRoom, setOnlineRoom] = useState<OnlineRoom | null>(null)
+  const [onlineEntryMode, setOnlineEntryMode] =
+    useState<OnlineEntryMode>('menu')
   const [onlineRoomTitle, setOnlineRoomTitle] = useState('Decision room')
   const [onlineRoomCodeInput, setOnlineRoomCodeInput] = useState('')
   const [onlineParticipantName, setOnlineParticipantName] = useState('')
@@ -1272,6 +1279,7 @@ function App() {
     }
 
     setAppMode('online')
+    setOnlineEntryMode('join')
     setOnlineRoomCodeInput(roomCode)
   }, [])
 
@@ -2150,6 +2158,18 @@ function App() {
     setAuthMessage('')
   }
 
+  function openOnlineMode() {
+    setAppMode('online')
+    if (!onlineRoom) {
+      setOnlineEntryMode('menu')
+    }
+  }
+
+  function returnToOnlineEntryMenu() {
+    setOnlineEntryMode('menu')
+    setOnlineMessage('')
+  }
+
   function openChoiceDrawerForEntry() {
     setChoiceDrawerOpen(true)
     setChoiceEntryOpen(true)
@@ -2235,7 +2255,7 @@ function App() {
     setOnlineLoading(false)
 
     if (error) {
-      setOnlineMessage('Could not update the room.')
+      setOnlineMessage(getOnlineRoomErrorMessage('update'))
       return
     }
 
@@ -2285,7 +2305,7 @@ function App() {
     setOnlineLoading(false)
 
     if (error) {
-      setOnlineMessage('Could not create the room. Try again.')
+      setOnlineMessage(getOnlineRoomErrorMessage('create'))
       return
     }
 
@@ -3199,7 +3219,7 @@ function App() {
           <button
             type="button"
             className="mode-card"
-            onClick={() => setAppMode('online')}
+            onClick={openOnlineMode}
           >
             <strong>Online mode</strong>
           </button>
@@ -3308,129 +3328,160 @@ function App() {
               <strong>Online mode needs Supabase.</strong>
               <p>Configure Supabase before creating voting rooms.</p>
             </div>
-          ) : !onlineRoom ? (
-            <div className="online-room-grid">
-              <form className="online-room-form" onSubmit={createOnlineRoom}>
-                <h2>Create room</h2>
-                <label htmlFor="online-participant-name">Your name</label>
-                <input
-                  id="online-participant-name"
-                  value={onlineParticipantName}
-                  onChange={(event) =>
-                    setOnlineParticipantName(event.target.value)
-                  }
-                  placeholder="Example: David"
-                />
-                <label htmlFor="online-room-title">Room name</label>
-                <input
-                  id="online-room-title"
-                  value={onlineRoomTitle}
-                  onChange={(event) => setOnlineRoomTitle(event.target.value)}
-                  placeholder="Decision room"
-                />
-
-                <fieldset className="online-room-settings">
-                  <legend>Room settings</legend>
-
-                  <label htmlFor="online-tie-breaker">Tie breaker</label>
-                  <select
-                    id="online-tie-breaker"
-                    value={onlineTieBreakerMode}
-                    onChange={(event) =>
-                      setOnlineTieBreakerMode(
-                        event.target.value as OnlineTieBreakerMode,
-                      )
-                    }
-                  >
-                    <option value="random">Random winner</option>
-                    <option value="revote">Vote again</option>
-                  </select>
-
-                  <label className="bulk-mode-toggle" htmlFor="online-show-voters">
-                    <input
-                      id="online-show-voters"
-                      type="checkbox"
-                      checked={onlineShowVoterNames}
-                      onChange={(event) =>
-                        setOnlineShowVoterNames(event.target.checked)
-                      }
-                    />
-                    Show who voted
-                  </label>
-
-                  <label htmlFor="online-choice-limit">
-                    Choices per participant
-                  </label>
-                  <input
-                    id="online-choice-limit"
-                    type="number"
-                    min="0"
-                    max={MAX_BRACKET_ITEMS}
-                    value={onlineMaxChoicesPerParticipant}
-                    onChange={(event) =>
-                      setOnlineMaxChoicesPerParticipant(
-                        Number(event.target.value),
-                      )
-                    }
-                  />
-                  <p>Use 0 for no participant limit.</p>
-
-                  <label htmlFor="online-vote-duration">
-                    Voting time
-                  </label>
-                  <input
-                    id="online-vote-duration"
-                    type="number"
-                    min="5"
-                    max="300"
-                    value={onlineVoteDurationSeconds}
-                    onChange={(event) =>
-                      setOnlineVoteDurationSeconds(Number(event.target.value))
-                    }
-                  />
-                  <p>Seconds per match.</p>
-                </fieldset>
-
-                <button
-                  type="submit"
-                  disabled={onlineLoading || !onlineParticipantName.trim()}
-                >
-                  Create room
-                </button>
-              </form>
-
-              <form className="online-room-form" onSubmit={joinOnlineRoom}>
-                <h2>Join room</h2>
-                <label htmlFor="join-participant-name">Your name</label>
-                <input
-                  id="join-participant-name"
-                  value={onlineParticipantName}
-                  onChange={(event) =>
-                    setOnlineParticipantName(event.target.value)
-                  }
-                  placeholder="Example: David"
-                />
-                <label htmlFor="online-room-code">Room code or invite link</label>
-                <input
-                  id="online-room-code"
-                  value={onlineRoomCodeInput}
-                  onChange={(event) =>
-                    setOnlineRoomCodeInput(event.target.value)
-                  }
-                  placeholder="ABC123 or invite link"
-                />
-                <button
-                  type="submit"
-                  disabled={
-                    onlineLoading ||
-                    !onlineParticipantName.trim() ||
-                    !onlineRoomCodeInput.trim()
-                  }
-                >
-                  Join room
-                </button>
-              </form>
+          ) : !onlineRoom && onlineEntryMode === 'menu' ? (
+            <div className="online-entry-actions" aria-label="Online room action">
+              <button
+                type="button"
+                className="mode-card primary-mode-card"
+                onClick={() => setOnlineEntryMode('create')}
+              >
+                <ActionIcon name="add" />
+                <strong>Create room</strong>
+              </button>
+              <button
+                type="button"
+                className="mode-card"
+                onClick={() => setOnlineEntryMode('join')}
+              >
+                <ActionIcon name="share" />
+                <strong>Join room</strong>
+              </button>
             </div>
+          ) : !onlineRoom && onlineEntryMode === 'create' ? (
+            <form className="online-room-form" onSubmit={createOnlineRoom}>
+              <div className="inline-screen-header">
+                <button
+                  type="button"
+                  className="back-button"
+                  aria-label="Back to online options"
+                  onClick={returnToOnlineEntryMenu}
+                >
+                  ←
+                </button>
+                <h2>Create room</h2>
+              </div>
+              <label htmlFor="online-participant-name">Your name</label>
+              <input
+                id="online-participant-name"
+                value={onlineParticipantName}
+                onChange={(event) =>
+                  setOnlineParticipantName(event.target.value)
+                }
+                placeholder="Example: David"
+              />
+              <label htmlFor="online-room-title">Room name</label>
+              <input
+                id="online-room-title"
+                value={onlineRoomTitle}
+                onChange={(event) => setOnlineRoomTitle(event.target.value)}
+                placeholder="Decision room"
+              />
+
+              <fieldset className="online-room-settings">
+                <legend>Room settings</legend>
+
+                <label htmlFor="online-tie-breaker">Tie breaker</label>
+                <select
+                  id="online-tie-breaker"
+                  value={onlineTieBreakerMode}
+                  onChange={(event) =>
+                    setOnlineTieBreakerMode(
+                      event.target.value as OnlineTieBreakerMode,
+                    )
+                  }
+                >
+                  <option value="random">Random winner</option>
+                  <option value="revote">Vote again</option>
+                </select>
+
+                <label className="bulk-mode-toggle" htmlFor="online-show-voters">
+                  <input
+                    id="online-show-voters"
+                    type="checkbox"
+                    checked={onlineShowVoterNames}
+                    onChange={(event) =>
+                      setOnlineShowVoterNames(event.target.checked)
+                    }
+                  />
+                  Show who voted
+                </label>
+
+                <label htmlFor="online-choice-limit">
+                  Choices per participant
+                </label>
+                <input
+                  id="online-choice-limit"
+                  type="number"
+                  min="0"
+                  max={MAX_BRACKET_ITEMS}
+                  value={onlineMaxChoicesPerParticipant}
+                  onChange={(event) =>
+                    setOnlineMaxChoicesPerParticipant(Number(event.target.value))
+                  }
+                />
+                <p>Use 0 for no participant limit.</p>
+
+                <label htmlFor="online-vote-duration">Voting time</label>
+                <input
+                  id="online-vote-duration"
+                  type="number"
+                  min="5"
+                  max="300"
+                  value={onlineVoteDurationSeconds}
+                  onChange={(event) =>
+                    setOnlineVoteDurationSeconds(Number(event.target.value))
+                  }
+                />
+                <p>Seconds per match.</p>
+              </fieldset>
+
+              <button
+                type="submit"
+                disabled={onlineLoading || !onlineParticipantName.trim()}
+              >
+                Create room
+              </button>
+            </form>
+          ) : !onlineRoom ? (
+            <form className="online-room-form" onSubmit={joinOnlineRoom}>
+              <div className="inline-screen-header">
+                <button
+                  type="button"
+                  className="back-button"
+                  aria-label="Back to online options"
+                  onClick={returnToOnlineEntryMenu}
+                >
+                  ←
+                </button>
+                <h2>Join room</h2>
+              </div>
+              <label htmlFor="join-participant-name">Your name</label>
+              <input
+                id="join-participant-name"
+                value={onlineParticipantName}
+                onChange={(event) =>
+                  setOnlineParticipantName(event.target.value)
+                }
+                placeholder="Example: David"
+              />
+              <label htmlFor="online-room-code">Room code or invite link</label>
+              <input
+                id="online-room-code"
+                value={onlineRoomCodeInput}
+                onChange={(event) => setOnlineRoomCodeInput(event.target.value)}
+                placeholder="ABC123 or invite link"
+              />
+              <button
+                type="submit"
+                disabled={
+                  onlineLoading ||
+                  !onlineParticipantName.trim() ||
+                  !onlineRoomCodeInput.trim()
+                }
+              >
+                Join room
+              </button>
+            </form>
           ) : (
             <div className="online-room">
               <div className="online-room-header">

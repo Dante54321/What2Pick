@@ -404,6 +404,11 @@ main>header p {
   max-width: 80rem;
 }
 
+.online-phase .template-screen-header {
+  align-items: center;
+  justify-content: flex-start;
+}
+
 .settings-row {
   display: flex;
   gap: 1rem;
@@ -447,6 +452,20 @@ main>header p {
   gap: 1rem;
 }
 
+.online-entry-actions {
+  width: min(100%, 44rem);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(12rem, 1fr));
+  gap: 1rem;
+  justify-self: center;
+}
+
+.online-entry-actions .mode-card .action-icon {
+  width: 1.7rem;
+  height: 1.7rem;
+  margin-bottom: 0.15rem;
+}
+
 .online-room-form,
 .online-room,
 .online-room-panel {
@@ -459,8 +478,20 @@ main>header p {
 }
 
 .online-room-form {
+  width: min(100%, 38rem);
   grid-template-columns: 1fr;
   align-content: start;
+  justify-self: center;
+}
+
+.inline-screen-header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.inline-screen-header h2 {
+  margin: 0;
 }
 
 .online-room {
@@ -1664,10 +1695,18 @@ main.playing-phase .bracket-round article.active-selection-match {
     grid-template-columns: 1fr;
   }
 
+  .online-entry-actions {
+    grid-template-columns: 1fr;
+  }
+
   .template-screen-header,
   .template-panel-header {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .online-phase .template-screen-header {
+    align-items: stretch;
   }
 }
 

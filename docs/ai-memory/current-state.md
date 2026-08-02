@@ -53,6 +53,11 @@ Last updated: 2026-08-02
 
 ## Latest Session Notes
 
+- Split Online mode entry into a first-step choice between `Create room` and `Join room`, with each form on its own focused screen.
+- Invite links with `?room=CODE` now open directly into the Online `Join room` screen with the room code prefilled.
+- Online room create/update errors now point users to running the updated Supabase schema when persistence fails.
+- Verified the separated Online screens in desktop/mobile Playwright screenshots.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 - Replaced text `Back` buttons in secondary screens with compact arrow-only back buttons while preserving accessible labels.
 - Simplified setup actions: `Choices` / `Bracket` now show directional arrows and icons, `Add` lives only inside the Choices panel and opens the single/multiple choice entry form on demand, and setup action buttons use small inline SVG icons.
 - Hid inactive setup actions where possible, such as `Shuffle` before there are enough random choices, to reduce top-bar clutter.

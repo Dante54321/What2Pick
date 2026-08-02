@@ -234,13 +234,22 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: /online mode/i }))
 
     expect(screen.getByRole('heading', { name: /online mode/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^create room$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^join room$/i })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^create room$/i }))
+
     expect(screen.getByRole('heading', { name: /create room/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /join room/i })).toBeInTheDocument()
-    expect(screen.getByLabelText(/room code or invite link/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/tie breaker/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/show who voted/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/choices per participant/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/voting time/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /back to online options/i }))
+    await user.click(screen.getByRole('button', { name: /^join room$/i }))
+
+    expect(screen.getByRole('heading', { name: /join room/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/room code or invite link/i)).toBeInTheDocument()
   })
 
   it('prefills online room code from an invite link query string', async () => {
@@ -249,7 +258,7 @@ describe('App', () => {
     render(<App />)
 
     expect(screen.getByRole('heading', { name: /online mode/i })).toBeInTheDocument()
-    expect(screen.getByLabelText(/room code or invite link/i)).toHaveValue('ABC123')
+    expect(await screen.findByLabelText(/room code or invite link/i)).toHaveValue('ABC123')
   })
 
   it('decides tied online match votes randomly after everyone votes', () => {
