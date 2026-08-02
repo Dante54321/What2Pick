@@ -53,6 +53,7 @@ Last updated: 2026-07-26
 
 ## Latest Session Notes
 
+- Replaced text `Back` buttons in secondary screens with compact arrow-only back buttons while preserving accessible labels.
 - Simplified setup actions: `Choices` / `Bracket` now show directional arrows and icons, `Add` lives only inside the Choices panel and opens the single/multiple choice entry form on demand, and setup action buttons use small inline SVG icons.
 - Hid inactive setup actions where possible, such as `Shuffle` before there are enough random choices, to reduce top-bar clutter.
 - Updated unit and Playwright E2E tests for the collapsed Add flow.

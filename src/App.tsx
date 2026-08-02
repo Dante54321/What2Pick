@@ -2353,10 +2353,11 @@ function App() {
           <div className="auth-screen-header">
             <button
               type="button"
-              className="secondary-button"
+              className="back-button"
+              aria-label="Back"
               onClick={() => setAuthScreenOpen(false)}
             >
-              Back
+              ←
             </button>
 
             <div>
@@ -2441,10 +2442,11 @@ function App() {
           <div className="template-screen-header">
             <button
               type="button"
-              className="secondary-button"
+              className="back-button"
+              aria-label="Back"
               onClick={() => setTemplateScreenOpen(false)}
             >
-              Back
+              ←
             </button>
 
             <div>
@@ -2637,10 +2639,11 @@ function App() {
           <div className="template-screen-header">
             <button
               type="button"
-              className="secondary-button"
+              className="back-button"
+              aria-label="Back"
               onClick={() => setBracketScreenOpen(false)}
             >
-              Back
+              ←
             </button>
 
             <div>
@@ -2915,10 +2918,11 @@ function App() {
           <div className="template-screen-header">
             <button
               type="button"
-              className="secondary-button"
+              className="back-button"
+              aria-label="Back"
               onClick={openMainMenu}
             >
-              Back
+              ←
             </button>
             <div>
               <h1>Settings</h1>
@@ -2950,10 +2954,11 @@ function App() {
           <div className="template-screen-header">
             <button
               type="button"
-              className="secondary-button"
+              className="back-button"
+              aria-label="Back"
               onClick={openMainMenu}
             >
-              Back
+              ←
             </button>
             <div>
               <h1>Online mode</h1>
