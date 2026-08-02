@@ -53,6 +53,13 @@ Last updated: 2026-07-26
 
 ## Latest Session Notes
 
+- Simplified setup actions: `Choices` / `Bracket` now show directional arrows and icons, `Add` lives only inside the Choices panel and opens the single/multiple choice entry form on demand, and setup action buttons use small inline SVG icons.
+- Hid inactive setup actions where possible, such as `Shuffle` before there are enough random choices, to reduce top-bar clutter.
+- Updated unit and Playwright E2E tests for the collapsed Add flow.
+- Adjusted the full-width desktop choices layout so the choice entry form and saved-list quick actions (`Load`, `Save`, `Edit lists`) use stable horizontal sizing, while mobile keeps stacked controls.
+- Changed setup view switching so `Choices` / `Bracket` tabs are available on desktop as well as mobile, replacing the desktop side-by-side setup drawer layout.
+- Removed internal vertical scrolling from the choices drawer and bracket viewport so vertical movement uses the page scroll; the bracket keeps horizontal scrolling for wide brackets.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 - Added a focused selection mode for started individual brackets: the next ready match is highlighted and auto-centered after each pick, with an `Auto focus` checkbox to disable/re-enable that behavior.
 - Added a bracket zoom slider in the started-bracket view and reduced selection-phase chrome by hiding account/theme/setup summary controls and deferring `Start over`/quick save until after a champion is selected.
 - Verified `npm.cmd run test`, `npm.cmd run build`, and `npm.cmd run lint` pass.

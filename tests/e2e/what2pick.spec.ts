@@ -21,6 +21,8 @@ test('chooses a champion through the What2Pick bracket', async ({ page }) => {
   })
 
   await test.step('Add four choices', async () => {
+    await page.getByRole('button', { name: 'Add', exact: true }).click()
+
     for (const choice of choices) {
       await page.getByLabel('Choice name').fill(choice)
       await page.getByRole('button', { name: 'Add choice' }).click()
@@ -79,6 +81,7 @@ test('renders multi-round bracket connectors without empty endpoints', async ({
   async function buildBracket(bracketChoices: string[]) {
     await page.goto('/')
     await page.getByRole('button', { name: /Individual mode/ }).click()
+    await page.getByRole('button', { name: 'Add', exact: true }).click()
 
     for (const choice of bracketChoices) {
       await page.getByLabel('Choice name').fill(choice)

@@ -33,6 +33,9 @@ async function addChoice(name: string) {
   const user = userEvent.setup()
 
   await openIndividualMode()
+  if (!screen.queryByLabelText(/^choice name$/i)) {
+    await user.click(screen.getByRole('button', { name: /^add$/i }))
+  }
   await user.type(screen.getByLabelText(/^choice name$/i), name)
   await user.click(screen.getByRole('button', { name: /add choice/i }))
 }
@@ -96,6 +99,7 @@ describe('App', () => {
     render(<App />)
     await openIndividualMode()
 
+    await user.click(screen.getByRole('button', { name: /^add$/i }))
     await user.click(screen.getByLabelText(/multiple/i))
 
     fireEvent.change(screen.getByLabelText(/^multiple choices$/i), {

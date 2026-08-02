@@ -157,6 +157,47 @@ type BracketConnector = {
   targetY: number
 }
 
+type IconName =
+  | 'add'
+  | 'bracket'
+  | 'choices'
+  | 'folder'
+  | 'shuffle'
+  | 'start'
+  | 'reset'
+  | 'close'
+  | 'edit'
+  | 'load'
+  | 'save'
+
+function ActionIcon({ name }: { name: IconName }) {
+  const paths: Record<IconName, string[]> = {
+    add: ['M12 5v14', 'M5 12h14'],
+    bracket: ['M6 6h5v4H6z', 'M13 14h5v4h-5z', 'M11 8h3v8'],
+    choices: ['M8 7h10', 'M8 12h10', 'M8 17h10', 'M5 7h.01', 'M5 12h.01', 'M5 17h.01'],
+    folder: ['M4 7h6l2 2h8v9H4z'],
+    shuffle: ['M4 7h3c4 0 6 10 10 10h3', 'M17 14l3 3-3 3', 'M4 17h3c1.8 0 3.2-2 4.4-4', 'M17 4l3 3-3 3', 'M14 7h6'],
+    start: ['M8 5l11 7-11 7z'],
+    reset: ['M5 8a7 7 0 1 1 1.8 7', 'M5 8V4', 'M5 8h4'],
+    close: ['M6 6l12 12', 'M18 6 6 18'],
+    edit: ['M5 19h4L19 9l-4-4L5 15z', 'M13 7l4 4'],
+    load: ['M12 5v10', 'M8 11l4 4 4-4', 'M5 19h14'],
+    save: ['M6 4h10l2 2v14H6z', 'M9 4v6h6', 'M9 16h6'],
+  }
+
+  return (
+    <svg
+      aria-hidden="true"
+      className="action-icon"
+      viewBox="0 0 24 24"
+    >
+      {paths[name].map((path) => (
+        <path d={path} key={path} />
+      ))}
+    </svg>
+  )
+}
+
 function getRoundName(roundIndex: number, totalRounds: number) {
   const roundsRemaining = totalRounds - roundIndex
 
@@ -539,6 +580,7 @@ function App() {
   const [bulkChoiceText, setBulkChoiceText] = useState('')
   const [bulkChoiceMode, setBulkChoiceMode] = useState(false)
   const [choiceDrawerOpen, setChoiceDrawerOpen] = useState(true)
+  const [choiceEntryOpen, setChoiceEntryOpen] = useState(false)
   const [templateName, setTemplateName] = useState('')
   const [choiceTemplates, setChoiceTemplates] = useState<ChoiceTemplate[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
@@ -1870,6 +1912,7 @@ function App() {
 
     setChoiceName('')
     setBulkChoiceText('')
+    setChoiceEntryOpen(false)
     setChoices([])
     setBracketStarted(false)
     setWinnerByMatchId({})
@@ -1951,6 +1994,7 @@ function App() {
 
   function openChoiceDrawerForEntry() {
     setChoiceDrawerOpen(true)
+    setChoiceEntryOpen(true)
     requestAnimationFrame(() => {
       choiceEntryRef.current?.focus()
     })
@@ -3235,14 +3279,18 @@ function App() {
                 className={choiceDrawerOpen ? 'selected' : undefined}
                 onClick={() => setChoiceDrawerOpen(true)}
               >
-                Choices
+                <ActionIcon name="choices" />
+                <span>Choices</span>
+                <span className="switch-arrow">-&gt;</span>
               </button>
               <button
                 type="button"
                 className={!choiceDrawerOpen ? 'selected' : undefined}
                 onClick={() => setChoiceDrawerOpen(false)}
               >
-                Bracket
+                <span className="switch-arrow">&lt;-</span>
+                <ActionIcon name="bracket" />
+                <span>Bracket</span>
               </button>
             </div>
 
@@ -3259,49 +3307,46 @@ function App() {
               </strong>
             </button>
 
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={openChoiceDrawerForEntry}
-              disabled={choices.length >= MAX_BRACKET_ITEMS}
-            >
-              Add
-            </button>
-
             {session && (
               <button
                 type="button"
-                className="secondary-button"
+                className="secondary-button icon-button"
                 onClick={() => setBracketScreenOpen(true)}
               >
-                My brackets
+                <ActionIcon name="folder" />
+                <span>My brackets</span>
+              </button>
+            )}
+
+            {randomChoicesCount >= 2 && (
+              <button
+                type="button"
+                className="secondary-button icon-button"
+                onClick={shuffleRandomChoices}
+              >
+                <ActionIcon name="shuffle" />
+                <span>Shuffle</span>
               </button>
             )}
 
             <button
               type="button"
-              className="secondary-button"
-              onClick={shuffleRandomChoices}
-              disabled={randomChoicesCount < 2}
-            >
-              Shuffle
-            </button>
-
-            <button
-              type="button"
+              className="icon-button"
               onClick={toggleBracket}
               disabled={!canStartBracket}
             >
-              Start bracket
+              <ActionIcon name="start" />
+              <span>Start bracket</span>
             </button>
 
             {choices.length > 0 && (
               <button
                 type="button"
-                className="danger-button"
+                className="danger-button icon-button"
                 onClick={startOver}
               >
-                Start over
+                <ActionIcon name="reset" />
+                <span>Start over</span>
               </button>
             )}
           </section>
@@ -3322,14 +3367,25 @@ function App() {
                 </div>
                 <button
                   type="button"
-                  className="secondary-button"
-                  onClick={() => setChoiceDrawerOpen(false)}
+                  className={
+                    choiceEntryOpen
+                      ? 'secondary-button icon-button'
+                      : 'icon-button'
+                  }
+                  onClick={
+                    choiceEntryOpen
+                      ? () => setChoiceEntryOpen(false)
+                      : openChoiceDrawerForEntry
+                  }
+                  disabled={!choiceEntryOpen && choices.length >= MAX_BRACKET_ITEMS}
                 >
-                  Hide
+                  <ActionIcon name={choiceEntryOpen ? 'close' : 'add'} />
+                  <span>{choiceEntryOpen ? 'Cancel' : 'Add'}</span>
                 </button>
               </div>
 
-          <div className="choice-entry-grid">
+          {choiceEntryOpen && (
+            <div className="choice-entry-grid">
             <form
               className={bulkChoiceMode ? 'choice-entry-form bulk-mode' : 'choice-entry-form'}
               onSubmit={submitChoices}
@@ -3396,16 +3452,19 @@ function App() {
 
               <button
                 type="submit"
+                className="icon-button"
                 disabled={
                   bracketStarted ||
                   choices.length >= MAX_BRACKET_ITEMS ||
                   (bulkChoiceMode && importableChoiceNames.length === 0)
                 }
               >
-                {bulkChoiceMode ? 'Add list' : 'Add choice'}
+                <ActionIcon name="add" />
+                <span>{bulkChoiceMode ? 'Add list' : 'Add choice'}</span>
               </button>
             </form>
           </div>
+          )}
 
           {choices.length === 0 ? (
             <p>No choices added yet.</p>
@@ -3495,25 +3554,30 @@ function App() {
               {choiceTemplates.length > 0 && (
                 <button
                   type="button"
+                  className="secondary-button icon-button"
                   onClick={loadChoiceTemplate}
                   disabled={templateLoading || !selectedTemplateId}
                 >
-                  Load
+                  <ActionIcon name="load" />
+                  <span>Load</span>
                 </button>
               )}
               <button
                 type="button"
+                className="icon-button"
                 onClick={saveQuickChoiceList}
                 disabled={templateLoading || choices.length === 0}
               >
-                Save
+                <ActionIcon name="save" />
+                <span>Save</span>
               </button>
               <button
                 type="button"
-                className="secondary-button"
+                className="secondary-button icon-button"
                 onClick={() => setTemplateScreenOpen(true)}
               >
-                Edit lists
+                <ActionIcon name="edit" />
+                <span>Edit lists</span>
               </button>
               {quickListSaveOpen && (
                 <form
