@@ -11,10 +11,12 @@ import App from './App'
 import { getReductionRoundPlan, getReductionRoundPlans } from './bracket'
 import { getImportableChoiceNames } from './importChoices'
 import { getOnlineMatchWinnerFromVotes } from './onlineVoting'
+import { getOnlineParticipantsForJoin } from './onlineParticipants'
 
 afterEach(() => {
   cleanup()
   localStorage.clear()
+  sessionStorage.clear()
   window.history.pushState({}, '', '/')
   vi.restoreAllMocks()
 })
@@ -294,6 +296,21 @@ describe('App', () => {
         () => 0.75,
       ),
     ).toBe('choice-b')
+  })
+
+  it('creates a new online participant when the same browser joins as another person', () => {
+    const joinResult = getOnlineParticipantsForJoin(
+      [{ id: 'shared-browser-id', name: 'David' }],
+      'shared-browser-id',
+      'Maria',
+      () => 'second-person-id',
+    )
+
+    expect(joinResult.participantId).toBe('second-person-id')
+    expect(joinResult.participants).toEqual([
+      { id: 'shared-browser-id', name: 'David' },
+      { id: 'second-person-id', name: 'Maria' },
+    ])
   })
 
   it('advances winners through a four-choice bracket and selects a champion', async () => {

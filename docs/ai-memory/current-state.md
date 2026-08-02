@@ -53,6 +53,10 @@ Last updated: 2026-08-02
 
 ## Latest Session Notes
 
+- Fixed Online mode participant identity so votes from two people using the same browser no longer overwrite each other.
+- Online participant ids now use `sessionStorage`, and joining a room with a different name under an existing id creates a new participant id.
+- Added `src/onlineParticipants.ts` with unit coverage for same-browser second-person joins.
+- Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 - Changed the Online mode entry action layout so `Create room` and `Join room` are stacked vertically on desktop and mobile.
 - Verified `npm.cmd run build` and `npm.cmd run lint` pass, and checked the Online entry layout with a desktop Playwright screenshot.
 - Split Online mode entry into a first-step choice between `Create room` and `Join room`, with each form on its own focused screen.

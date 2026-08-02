@@ -10,6 +10,7 @@ import {
 import type { Session } from '@supabase/supabase-js'
 import { getReductionRoundPlan, getReductionRoundPlans } from './bracket'
 import { getImportableChoiceNames } from './importChoices'
+import { getOnlineParticipantsForJoin } from './onlineParticipants'
 import { isSupabaseConfigured, supabase } from './supabaseClient'
 import './App.css'
 
@@ -602,18 +603,32 @@ function getOnlineParticipantId() {
   }
 
   try {
-    const storedId = window.localStorage.getItem(ONLINE_PARTICIPANT_STORAGE_KEY)
+    const storedId = window.sessionStorage.getItem(
+      ONLINE_PARTICIPANT_STORAGE_KEY,
+    )
 
     if (storedId) {
       return storedId
     }
 
-    const nextId = crypto.randomUUID()
-    window.localStorage.setItem(ONLINE_PARTICIPANT_STORAGE_KEY, nextId)
-    return nextId
+    return createOnlineParticipantId()
   } catch {
     return crypto.randomUUID()
   }
+}
+
+function createOnlineParticipantId() {
+  const nextId = crypto.randomUUID()
+
+  if (typeof window !== 'undefined') {
+    try {
+      window.sessionStorage.setItem(ONLINE_PARTICIPANT_STORAGE_KEY, nextId)
+    } catch {
+      // The in-memory id still works for the current render.
+    }
+  }
+
+  return nextId
 }
 
 function generateRoomCode() {
@@ -640,7 +655,9 @@ function getAuthErrorMessage(errorMessage: string) {
 
 function App() {
   const persistedSettings = useMemo(readPersistedSettings, [])
-  const onlineParticipantId = useMemo(getOnlineParticipantId, [])
+  const [onlineParticipantId, setOnlineParticipantId] = useState(
+    getOnlineParticipantId,
+  )
   const [appMode, setAppMode] = useState<AppMode>('home')
   const [choiceName, setChoiceName] = useState('')
   const [bulkChoiceText, setBulkChoiceText] = useState('')
@@ -2330,26 +2347,21 @@ function App() {
       return
     }
 
-    const participants = room.participants.some(
-      (participant) => participant.id === onlineParticipantId,
+    const joinResult = getOnlineParticipantsForJoin(
+      room.participants,
+      onlineParticipantId,
+      participantName,
+      createOnlineParticipantId,
     )
-      ? room.participants.map((participant) =>
-          participant.id === onlineParticipantId
-            ? { ...participant, name: participantName }
-            : participant,
-        )
-      : [
-          ...room.participants,
-          {
-            id: onlineParticipantId,
-            name: participantName,
-          },
-        ]
+
+    if (joinResult.participantId !== onlineParticipantId) {
+      setOnlineParticipantId(joinResult.participantId)
+    }
 
     await saveOnlineRoom(
       {
         ...room,
-        participants,
+        participants: joinResult.participants,
       },
       `Joined room ${room.code}.`,
     )
