@@ -400,6 +400,10 @@ main>header p {
   max-width: 56rem;
 }
 
+.online-phase .settings-screen {
+  max-width: 80rem;
+}
+
 .settings-row {
   display: flex;
   gap: 1rem;
@@ -454,10 +458,37 @@ main>header p {
   border-radius: 0.65rem;
 }
 
+.online-room-form {
+  grid-template-columns: 1fr;
+  align-content: start;
+}
+
 .online-room {
   background: transparent;
   border: 0;
   padding: 0;
+}
+
+.online-room-settings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.65rem;
+  padding: 0.85rem;
+  margin: 0;
+  border: 1px solid #334155;
+  border-radius: 0.6rem;
+}
+
+.online-room-settings legend {
+  padding: 0 0.35rem;
+  color: #bfdbfe;
+  font-weight: 800;
+}
+
+.online-room-settings p {
+  margin: -0.35rem 0 0;
+  color: #94a3b8;
+  font-size: 0.85rem;
 }
 
 .online-room-header {
@@ -465,6 +496,23 @@ main>header p {
   gap: 1rem;
   align-items: flex-start;
   justify-content: space-between;
+}
+
+.online-room-actions,
+.online-template-loader {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.online-template-loader {
+  display: grid;
+  grid-template-columns: minmax(10rem, auto) minmax(14rem, 1fr) auto;
+}
+
+.online-template-loader label {
+  grid-column: auto;
 }
 
 .online-room-header p,
@@ -507,13 +555,22 @@ main>header p {
 }
 
 .online-vote-options button {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 1rem;
   align-items: center;
-  justify-content: space-between;
   color: #e5e7eb;
   background: #111827;
   border-color: #334155;
+}
+
+.online-vote-options button small {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .online-vote-options button.selected {
@@ -960,9 +1017,20 @@ button {
   border: 1px solid #ef4444;
   border-radius: 0.55rem;
   font-weight: 700;
+  text-decoration: none;
   transition:
     background 160ms ease,
     transform 160ms ease;
+}
+
+a.secondary-button {
+  padding: 0.7rem 1rem;
+  color: #dbeafe;
+  background: #1f2937;
+  border: 1px solid #475569;
+  border-radius: 0.55rem;
+  font-weight: 700;
+  text-decoration: none;
 }
 
 button:hover:not(:disabled) {

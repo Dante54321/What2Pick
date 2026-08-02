@@ -10,7 +10,6 @@ import {
 import type { Session } from '@supabase/supabase-js'
 import { getReductionRoundPlan, getReductionRoundPlans } from './bracket'
 import { getImportableChoiceNames } from './importChoices'
-import { getOnlineMatchWinnerFromVotes } from './onlineVoting'
 import { isSupabaseConfigured, supabase } from './supabaseClient'
 import './App.css'
 
@@ -23,6 +22,14 @@ const CHOICE_TEMPLATES_TABLE = 'choice_templates'
 const SAVED_BRACKETS_TABLE = 'saved_brackets'
 const ONLINE_ROOMS_TABLE = 'online_rooms'
 const ONLINE_PARTICIPANT_STORAGE_KEY = 'what2pick.onlineParticipantId.v1'
+const ONLINE_ROOM_SELECT_FIELDS =
+  'id, code, title, participants, choices, bracket_started, winner_by_match_id, votes_by_match_id, settings, vote_round_started_at, tie_breaker_round, updated_at'
+const DEFAULT_ONLINE_ROOM_SETTINGS: OnlineRoomSettings = {
+  tieBreakerMode: 'random',
+  showVoterNames: false,
+  maxChoicesPerParticipant: 0,
+  voteDurationSeconds: 15,
+}
 
 type FixedBracketPosition = `slot-${number}`
 type BracketPosition = 'random' | FixedBracketPosition
@@ -32,6 +39,7 @@ type Choice = {
   name: string
   position: BracketPosition
   randomOrder: number
+  addedByParticipantId?: string
 }
 
 type BracketState = {
@@ -84,6 +92,15 @@ type OnlineParticipant = {
   name: string
 }
 
+type OnlineTieBreakerMode = 'random' | 'revote'
+
+type OnlineRoomSettings = {
+  tieBreakerMode: OnlineTieBreakerMode
+  showVoterNames: boolean
+  maxChoicesPerParticipant: number
+  voteDurationSeconds: number
+}
+
 type OnlineRoom = {
   id: string
   code: string
@@ -93,6 +110,9 @@ type OnlineRoom = {
   bracketStarted: boolean
   winnerByMatchId: Record<string, string>
   votesByMatchId: Record<string, Record<string, string>>
+  settings: OnlineRoomSettings
+  voteRoundStartedAt: string | null
+  tieBreakerRound: number
   updatedAt: string
 }
 
@@ -105,6 +125,9 @@ type OnlineRoomRow = {
   bracket_started: boolean
   winner_by_match_id: unknown
   votes_by_match_id: unknown
+  settings: unknown
+  vote_round_started_at: string | null
+  tie_breaker_round: number | null
   updated_at: string
 }
 
@@ -169,6 +192,7 @@ type IconName =
   | 'edit'
   | 'load'
   | 'save'
+  | 'share'
 
 function ActionIcon({ name }: { name: IconName }) {
   const paths: Record<IconName, string[]> = {
@@ -183,6 +207,7 @@ function ActionIcon({ name }: { name: IconName }) {
     edit: ['M5 19h4L19 9l-4-4L5 15z', 'M13 7l4 4'],
     load: ['M12 5v10', 'M8 11l4 4 4-4', 'M5 19h14'],
     save: ['M6 4h10l2 2v14H6z', 'M9 4v6h6', 'M9 16h6'],
+    share: ['M4 12v7h16v-7', 'M12 15V4', 'M8 8l4-4 4 4'],
   }
 
   return (
@@ -405,6 +430,35 @@ function isVotesByMatchId(
   )
 }
 
+function normalizeOnlineRoomSettings(value: unknown): OnlineRoomSettings {
+  if (!isRecord(value)) {
+    return DEFAULT_ONLINE_ROOM_SETTINGS
+  }
+
+  const tieBreakerMode =
+    value.tieBreakerMode === 'revote' ? 'revote' : 'random'
+  const maxChoicesPerParticipant =
+    typeof value.maxChoicesPerParticipant === 'number' &&
+    Number.isFinite(value.maxChoicesPerParticipant)
+      ? Math.max(0, Math.min(MAX_BRACKET_ITEMS, value.maxChoicesPerParticipant))
+      : DEFAULT_ONLINE_ROOM_SETTINGS.maxChoicesPerParticipant
+  const voteDurationSeconds =
+    typeof value.voteDurationSeconds === 'number' &&
+    Number.isFinite(value.voteDurationSeconds)
+      ? Math.max(5, Math.min(300, value.voteDurationSeconds))
+      : DEFAULT_ONLINE_ROOM_SETTINGS.voteDurationSeconds
+
+  return {
+    tieBreakerMode,
+    showVoterNames:
+      typeof value.showVoterNames === 'boolean'
+        ? value.showVoterNames
+        : DEFAULT_ONLINE_ROOM_SETTINGS.showVoterNames,
+    maxChoicesPerParticipant,
+    voteDurationSeconds,
+  }
+}
+
 function readPersistedSettings(): UserSettings {
   if (typeof window === 'undefined') {
     return {
@@ -526,6 +580,13 @@ function normalizeOnlineRoom(row: OnlineRoomRow): OnlineRoom {
       row.bracket_started === true && choices.length >= MIN_BRACKET_ITEMS,
     winnerByMatchId,
     votesByMatchId,
+    settings: normalizeOnlineRoomSettings(row.settings),
+    voteRoundStartedAt:
+      typeof row.vote_round_started_at === 'string'
+        ? row.vote_round_started_at
+        : null,
+    tieBreakerRound:
+      typeof row.tie_breaker_round === 'number' ? row.tie_breaker_round : 0,
     updatedAt: row.updated_at,
   }
 }
@@ -607,6 +668,14 @@ function App() {
   const [onlineRoomCodeInput, setOnlineRoomCodeInput] = useState('')
   const [onlineParticipantName, setOnlineParticipantName] = useState('')
   const [onlineChoiceName, setOnlineChoiceName] = useState('')
+  const [onlineTieBreakerMode, setOnlineTieBreakerMode] =
+    useState<OnlineTieBreakerMode>('random')
+  const [onlineShowVoterNames, setOnlineShowVoterNames] = useState(false)
+  const [onlineMaxChoicesPerParticipant, setOnlineMaxChoicesPerParticipant] =
+    useState(0)
+  const [onlineVoteDurationSeconds, setOnlineVoteDurationSeconds] =
+    useState(15)
+  const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now())
   const [onlineMessage, setOnlineMessage] = useState('')
   const [onlineLoading, setOnlineLoading] = useState(false)
   const [choices, setChoices] = useState<Choice[]>([])
@@ -630,6 +699,9 @@ function App() {
   const bracketViewportRef = useRef<HTMLDivElement>(null)
   const bracketArenaRef = useRef<HTMLDivElement>(null)
   const choiceEntryRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const resolveOnlineMatchRef = useRef<
+    (votesForMatch: Record<string, string>, forceResolve?: boolean) => void
+  >(() => undefined)
   const matchElementRefs = useRef(new Map<string, HTMLElement>())
   const [bracketConnectors, setBracketConnectors] = useState<
     BracketConnector[]
@@ -846,10 +918,40 @@ function App() {
 
     return undefined
   }, [onlineBracketRounds, onlineRoom])
-  const onlineCurrentVotes =
-    onlineRoom && onlineCurrentMatch
-      ? onlineRoom.votesByMatchId[onlineCurrentMatch.match.id] ?? {}
-      : {}
+  const onlineCurrentVotes = useMemo(
+    () =>
+      onlineRoom && onlineCurrentMatch
+        ? onlineRoom.votesByMatchId[onlineCurrentMatch.match.id] ?? {}
+        : {},
+    [onlineCurrentMatch, onlineRoom],
+  )
+  const onlineChoicesAddedByCurrentParticipant =
+    onlineRoom?.choices.filter(
+      (choice) => choice.addedByParticipantId === onlineParticipantId,
+    ).length ?? 0
+  const onlineChoiceLimit =
+    onlineRoom?.settings.maxChoicesPerParticipant ?? 0
+  const onlineChoiceLimitReached =
+    Boolean(onlineRoom) &&
+    onlineChoiceLimit > 0 &&
+    onlineChoicesAddedByCurrentParticipant >= onlineChoiceLimit
+  const onlineVoteDeadlineMs =
+    onlineRoom?.voteRoundStartedAt && onlineRoom.settings.voteDurationSeconds > 0
+      ? new Date(onlineRoom.voteRoundStartedAt).getTime() +
+        onlineRoom.settings.voteDurationSeconds * 1000
+      : undefined
+  const onlineVoteSecondsRemaining = onlineVoteDeadlineMs
+    ? Math.max(0, Math.ceil((onlineVoteDeadlineMs - currentTimeMs) / 1000))
+    : undefined
+  const onlineInviteUrl =
+    onlineRoom && typeof window !== 'undefined'
+      ? `${window.location.origin}${window.location.pathname}?room=${onlineRoom.code}`
+      : ''
+  const onlineWhatsAppUrl = onlineInviteUrl
+    ? `https://wa.me/?text=${encodeURIComponent(
+        `Join my What2Pick room: ${onlineInviteUrl}`,
+      )}`
+    : ''
   const positionOptions = Array.from(
     { length: choices.length },
     (_, index) => `slot-${index + 1}` as FixedBracketPosition,
@@ -1156,6 +1258,24 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const roomCode = new URLSearchParams(window.location.search)
+      .get('room')
+      ?.trim()
+      .toUpperCase()
+
+    if (!roomCode) {
+      return
+    }
+
+    setAppMode('online')
+    setOnlineRoomCodeInput(roomCode)
+  }, [])
+
+  useEffect(() => {
     const scrollbar = bracketScrollbarRef.current
     const viewport = bracketViewportRef.current
 
@@ -1326,6 +1446,43 @@ function App() {
     }
   }, [appMode, onlineRoom])
 
+  useEffect(() => {
+    if (!onlineRoom?.bracketStarted || onlineChampion) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      setCurrentTimeMs(Date.now())
+    }, 1000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [onlineChampion, onlineRoom?.bracketStarted])
+
+  useEffect(() => {
+    if (
+      !onlineRoom ||
+      !onlineCurrentMatch ||
+      onlineChampion ||
+      onlineLoading ||
+      onlineVoteDeadlineMs === undefined ||
+      onlineVoteDeadlineMs > currentTimeMs
+    ) {
+      return
+    }
+
+    resolveOnlineMatchRef.current(onlineCurrentVotes, true)
+  }, [
+    currentTimeMs,
+    onlineChampion,
+    onlineCurrentMatch,
+    onlineCurrentVotes,
+    onlineLoading,
+    onlineRoom,
+    onlineVoteDeadlineMs,
+  ])
+
   function resolveEntry(entry: BracketEntry) {
     if (entry.type === 'choice') {
       return entry.choice
@@ -1347,12 +1504,13 @@ function App() {
     setChoiceName('')
   }
 
-  function createChoice(name: string): Choice {
+  function createChoice(name: string, addedByParticipantId?: string): Choice {
     return {
       id: crypto.randomUUID(),
       name,
       position: 'random',
       randomOrder: Math.random(),
+      ...(addedByParticipantId ? { addedByParticipantId } : {}),
     }
   }
 
@@ -2001,7 +2159,17 @@ function App() {
   }
 
   async function loadOnlineRoomByCode(code: string, silent = false) {
-    const normalizedCode = code.trim().toUpperCase()
+    const trimmedCode = code.trim()
+    let normalizedCode = trimmedCode.toUpperCase()
+
+    try {
+      const parsedUrl = new URL(trimmedCode)
+      normalizedCode =
+        parsedUrl.searchParams.get('room')?.trim().toUpperCase() ??
+        normalizedCode
+    } catch {
+      // Treat non-URL input as a room code.
+    }
 
     if (!supabase || !normalizedCode) {
       return undefined
@@ -2014,9 +2182,7 @@ function App() {
 
     const { data, error } = await supabase
       .from(ONLINE_ROOMS_TABLE)
-      .select(
-        'id, code, title, participants, choices, bracket_started, winner_by_match_id, votes_by_match_id, updated_at',
-      )
+      .select(ONLINE_ROOM_SELECT_FIELDS)
       .eq('code', normalizedCode)
       .maybeSingle<OnlineRoomRow>()
 
@@ -2057,12 +2223,13 @@ function App() {
         bracket_started: nextRoom.bracketStarted,
         winner_by_match_id: nextRoom.winnerByMatchId,
         votes_by_match_id: nextRoom.votesByMatchId,
+        settings: nextRoom.settings,
+        vote_round_started_at: nextRoom.voteRoundStartedAt,
+        tie_breaker_round: nextRoom.tieBreakerRound,
         updated_at: new Date().toISOString(),
       })
       .eq('id', nextRoom.id)
-      .select(
-        'id, code, title, participants, choices, bracket_started, winner_by_match_id, votes_by_match_id, updated_at',
-      )
+      .select(ONLINE_ROOM_SELECT_FIELDS)
       .single<OnlineRoomRow>()
 
     setOnlineLoading(false)
@@ -2091,6 +2258,12 @@ function App() {
     setOnlineMessage('')
 
     const code = generateRoomCode()
+    const roomSettings = normalizeOnlineRoomSettings({
+      tieBreakerMode: onlineTieBreakerMode,
+      showVoterNames: onlineShowVoterNames,
+      maxChoicesPerParticipant: onlineMaxChoicesPerParticipant,
+      voteDurationSeconds: onlineVoteDurationSeconds,
+    })
     const participants = [
       {
         id: onlineParticipantId,
@@ -2104,10 +2277,9 @@ function App() {
         title,
         host_user_id: session?.user.id ?? null,
         participants,
+        settings: roomSettings,
       })
-      .select(
-        'id, code, title, participants, choices, bracket_started, winner_by_match_id, votes_by_match_id, updated_at',
-      )
+      .select(ONLINE_ROOM_SELECT_FIELDS)
       .single<OnlineRoomRow>()
 
     setOnlineLoading(false)
@@ -2178,7 +2350,8 @@ function App() {
       !onlineRoom ||
       !name ||
       onlineRoom.bracketStarted ||
-      onlineRoom.choices.length >= MAX_BRACKET_ITEMS
+      onlineRoom.choices.length >= MAX_BRACKET_ITEMS ||
+      onlineChoiceLimitReached
     ) {
       return
     }
@@ -2186,11 +2359,55 @@ function App() {
     await saveOnlineRoom(
       {
         ...onlineRoom,
-        choices: [...onlineRoom.choices, createChoice(name)],
+        choices: [...onlineRoom.choices, createChoice(name, onlineParticipantId)],
       },
       'Choice added.',
     )
     setOnlineChoiceName('')
+  }
+
+  async function loadOnlineChoiceTemplate() {
+    if (!onlineRoom || onlineRoom.bracketStarted || !selectedTemplate) {
+      return
+    }
+
+    const templateChoiceLimit =
+      onlineChoiceLimit > 0
+        ? Math.min(onlineChoiceLimit, MAX_BRACKET_ITEMS)
+        : MAX_BRACKET_ITEMS
+    const loadedChoiceNames = selectedTemplate.choiceNames.slice(
+      0,
+      templateChoiceLimit,
+    )
+
+    await saveOnlineRoom(
+      {
+        ...onlineRoom,
+        choices: loadedChoiceNames.map((name) =>
+          createChoice(name, onlineParticipantId),
+        ),
+        winnerByMatchId: {},
+        votesByMatchId: {},
+        voteRoundStartedAt: null,
+        tieBreakerRound: 0,
+      },
+      loadedChoiceNames.length < selectedTemplate.choiceNames.length
+        ? `Loaded ${loadedChoiceNames.length} choices from ${selectedTemplate.name}.`
+        : `Loaded ${selectedTemplate.name}.`,
+    )
+  }
+
+  async function copyOnlineInviteLink() {
+    if (!onlineInviteUrl) {
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(onlineInviteUrl)
+      setOnlineMessage('Invite link copied.')
+    } catch {
+      setOnlineMessage(onlineInviteUrl)
+    }
   }
 
   async function startOnlineVoting() {
@@ -2204,9 +2421,145 @@ function App() {
         bracketStarted: true,
         winnerByMatchId: {},
         votesByMatchId: {},
+        voteRoundStartedAt: new Date().toISOString(),
+        tieBreakerRound: 0,
       },
       'Voting started.',
     )
+  }
+
+  function getRandomChoiceId(choiceIds: string[]) {
+    return choiceIds[Math.floor(Math.random() * choiceIds.length)]
+  }
+
+  function getOnlineMatchResolution(
+    votesForMatch: Record<string, string>,
+    participantCount: number,
+    candidateChoiceIds: string[],
+    forceResolve = false,
+  ) {
+    const voteEntries = Object.entries(votesForMatch).filter(([, choiceId]) =>
+      candidateChoiceIds.includes(choiceId),
+    )
+
+    if (!forceResolve && voteEntries.length < participantCount) {
+      return { type: 'waiting' as const }
+    }
+
+    if (voteEntries.length === 0) {
+      return {
+        type:
+          onlineRoom?.settings.tieBreakerMode === 'revote'
+            ? ('revote' as const)
+            : ('winner' as const),
+        winnerId:
+          onlineRoom?.settings.tieBreakerMode === 'revote'
+            ? undefined
+            : getRandomChoiceId(candidateChoiceIds),
+      }
+    }
+
+    const voteCounts = voteEntries.reduce<Record<string, number>>(
+      (counts, [, choiceId]) => {
+        counts[choiceId] = (counts[choiceId] ?? 0) + 1
+        return counts
+      },
+      {},
+    )
+    const sortedVoteCounts = Object.entries(voteCounts).sort(
+      (firstVote, secondVote) => secondVote[1] - firstVote[1],
+    )
+    const topVoteCount = sortedVoteCounts[0]?.[1] ?? 0
+    const tiedTopChoiceIds = sortedVoteCounts
+      .filter(([, voteCount]) => voteCount === topVoteCount)
+      .map(([choiceId]) => choiceId)
+
+    if (tiedTopChoiceIds.length === 1) {
+      return { type: 'winner' as const, winnerId: tiedTopChoiceIds[0] }
+    }
+
+    if (onlineRoom?.settings.tieBreakerMode === 'revote') {
+      return { type: 'revote' as const }
+    }
+
+    return {
+      type: 'winner' as const,
+      winnerId: getRandomChoiceId(tiedTopChoiceIds),
+    }
+  }
+
+  async function resolveOnlineMatch(
+    votesForMatch: Record<string, string>,
+    forceResolve = false,
+  ) {
+    if (!onlineRoom || !onlineCurrentMatch) {
+      return
+    }
+
+    const matchId = onlineCurrentMatch.match.id
+    const resolution = getOnlineMatchResolution(
+      votesForMatch,
+      onlineRoom.participants.length,
+      onlineCurrentMatch.participants.map((choice) => choice.id),
+      forceResolve,
+    )
+
+    if (resolution.type === 'waiting') {
+      await saveOnlineRoom(
+        {
+          ...onlineRoom,
+          votesByMatchId: {
+            ...onlineRoom.votesByMatchId,
+            [matchId]: votesForMatch,
+          },
+        },
+        'Vote saved.',
+      )
+      return
+    }
+
+    if (resolution.type === 'revote') {
+      const nextVotesByMatchId = { ...onlineRoom.votesByMatchId }
+      delete nextVotesByMatchId[matchId]
+
+      await saveOnlineRoom(
+        {
+          ...onlineRoom,
+          votesByMatchId: nextVotesByMatchId,
+          voteRoundStartedAt: new Date().toISOString(),
+          tieBreakerRound: onlineRoom.tieBreakerRound + 1,
+        },
+        forceResolve
+          ? 'Time expired with a tie. Vote again.'
+          : 'Tie vote. Vote again.',
+      )
+      return
+    }
+
+    if (!resolution.winnerId) {
+      return
+    }
+
+    await saveOnlineRoom(
+      {
+        ...onlineRoom,
+        votesByMatchId: {
+          ...onlineRoom.votesByMatchId,
+          [matchId]: votesForMatch,
+        },
+        winnerByMatchId: {
+          ...onlineRoom.winnerByMatchId,
+          [matchId]: resolution.winnerId,
+        },
+        voteRoundStartedAt: new Date().toISOString(),
+        tieBreakerRound: 0,
+      },
+      forceResolve ? 'Time expired. Match decided.' : 'Match decided.',
+    )
+  }
+
+  resolveOnlineMatchRef.current = (votesForMatch, forceResolve) => {
+    void resolveOnlineMatch(votesForMatch, forceResolve)
   }
 
   async function voteOnline(choiceId: string) {
@@ -2223,24 +2576,8 @@ function App() {
       ...onlineRoom.votesByMatchId,
       [matchId]: votesForMatch,
     }
-    const winningChoiceId = getOnlineMatchWinnerFromVotes(
-      votesForMatch,
-      onlineRoom.participants.length,
-    )
 
-    await saveOnlineRoom(
-      {
-        ...onlineRoom,
-        votesByMatchId,
-        winnerByMatchId: winningChoiceId
-          ? {
-              ...onlineRoom.winnerByMatchId,
-              [matchId]: winningChoiceId,
-            }
-          : onlineRoom.winnerByMatchId,
-      },
-      winningChoiceId ? 'Match decided.' : 'Vote saved.',
-    )
+    await resolveOnlineMatch(votesByMatchId[matchId])
   }
 
   function switchAuthMode(nextAuthMode: AuthMode) {
@@ -2991,6 +3328,69 @@ function App() {
                   onChange={(event) => setOnlineRoomTitle(event.target.value)}
                   placeholder="Decision room"
                 />
+
+                <fieldset className="online-room-settings">
+                  <legend>Room settings</legend>
+
+                  <label htmlFor="online-tie-breaker">Tie breaker</label>
+                  <select
+                    id="online-tie-breaker"
+                    value={onlineTieBreakerMode}
+                    onChange={(event) =>
+                      setOnlineTieBreakerMode(
+                        event.target.value as OnlineTieBreakerMode,
+                      )
+                    }
+                  >
+                    <option value="random">Random winner</option>
+                    <option value="revote">Vote again</option>
+                  </select>
+
+                  <label className="bulk-mode-toggle" htmlFor="online-show-voters">
+                    <input
+                      id="online-show-voters"
+                      type="checkbox"
+                      checked={onlineShowVoterNames}
+                      onChange={(event) =>
+                        setOnlineShowVoterNames(event.target.checked)
+                      }
+                    />
+                    Show who voted
+                  </label>
+
+                  <label htmlFor="online-choice-limit">
+                    Choices per participant
+                  </label>
+                  <input
+                    id="online-choice-limit"
+                    type="number"
+                    min="0"
+                    max={MAX_BRACKET_ITEMS}
+                    value={onlineMaxChoicesPerParticipant}
+                    onChange={(event) =>
+                      setOnlineMaxChoicesPerParticipant(
+                        Number(event.target.value),
+                      )
+                    }
+                  />
+                  <p>Use 0 for no participant limit.</p>
+
+                  <label htmlFor="online-vote-duration">
+                    Voting time
+                  </label>
+                  <input
+                    id="online-vote-duration"
+                    type="number"
+                    min="5"
+                    max="300"
+                    value={onlineVoteDurationSeconds}
+                    onChange={(event) =>
+                      setOnlineVoteDurationSeconds(Number(event.target.value))
+                    }
+                  />
+                  <p>Seconds per match.</p>
+                </fieldset>
+
                 <button
                   type="submit"
                   disabled={onlineLoading || !onlineParticipantName.trim()}
@@ -3010,14 +3410,14 @@ function App() {
                   }
                   placeholder="Example: David"
                 />
-                <label htmlFor="online-room-code">Room code</label>
+                <label htmlFor="online-room-code">Room code or invite link</label>
                 <input
                   id="online-room-code"
                   value={onlineRoomCodeInput}
                   onChange={(event) =>
-                    setOnlineRoomCodeInput(event.target.value.toUpperCase())
+                    setOnlineRoomCodeInput(event.target.value)
                   }
-                  placeholder="ABC123"
+                  placeholder="ABC123 or invite link"
                 />
                 <button
                   type="submit"
@@ -3042,13 +3442,34 @@ function App() {
                     {onlineRoom.participants.length === 1 ? '' : 's'}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={leaveOnlineRoom}
-                >
-                  Leave
-                </button>
+                <div className="online-room-actions">
+                  <button
+                    type="button"
+                    className="secondary-button icon-button"
+                    onClick={copyOnlineInviteLink}
+                  >
+                    <ActionIcon name="load" />
+                    <span>Copy link</span>
+                  </button>
+                  {onlineWhatsAppUrl && (
+                    <a
+                      className="secondary-button icon-button"
+                      href={onlineWhatsAppUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <ActionIcon name="share" />
+                      <span>Share</span>
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={leaveOnlineRoom}
+                  >
+                    Leave
+                  </button>
+                </div>
               </div>
 
               <section className="online-room-panel">
@@ -3063,9 +3484,68 @@ function App() {
                 </ul>
               </section>
 
+              <section className="online-room-panel">
+                <h3>Room settings</h3>
+                <ul className="online-pill-list">
+                  <li>
+                    {onlineRoom.settings.tieBreakerMode === 'revote'
+                      ? 'Ties repeat'
+                      : 'Ties pick randomly'}
+                  </li>
+                  <li>
+                    {onlineRoom.settings.showVoterNames
+                      ? 'Votes show names'
+                      : 'Votes are anonymous'}
+                  </li>
+                  <li>
+                    {onlineRoom.settings.maxChoicesPerParticipant > 0
+                      ? `${onlineRoom.settings.maxChoicesPerParticipant} choices per participant`
+                      : 'Unlimited choices'}
+                  </li>
+                  <li>{onlineRoom.settings.voteDurationSeconds}s per vote</li>
+                </ul>
+              </section>
+
               {!onlineRoom.bracketStarted ? (
                 <section className="online-room-panel">
                   <h3>Shared choices</h3>
+
+                  {session && choiceTemplates.length > 0 && (
+                    <div className="online-template-loader">
+                      <label htmlFor="online-choice-template">
+                        Load saved list
+                      </label>
+                      <select
+                        id="online-choice-template"
+                        value={selectedTemplateId}
+                        onChange={(event) =>
+                          selectChoiceTemplate(event.target.value)
+                        }
+                        disabled={templateLoading || onlineLoading}
+                      >
+                        <option value="">Choose a saved list</option>
+                        {sortedChoiceTemplates.map((template) => (
+                          <option key={template.id} value={template.id}>
+                            {template.name} ({template.choiceNames.length})
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="secondary-button icon-button"
+                        onClick={loadOnlineChoiceTemplate}
+                        disabled={
+                          onlineLoading ||
+                          templateLoading ||
+                          !selectedTemplate
+                        }
+                      >
+                        <ActionIcon name="load" />
+                        <span>Load list</span>
+                      </button>
+                    </div>
+                  )}
+
                   <form className="online-choice-form" onSubmit={addOnlineChoice}>
                     <label htmlFor="online-choice-name">Choice name</label>
                     <input
@@ -3077,16 +3557,28 @@ function App() {
                       placeholder="Example: Pizza"
                       disabled={
                         onlineLoading ||
-                        onlineRoom.choices.length >= MAX_BRACKET_ITEMS
+                        onlineRoom.choices.length >= MAX_BRACKET_ITEMS ||
+                        onlineChoiceLimitReached
                       }
                     />
                     <button
                       type="submit"
-                      disabled={onlineLoading || !onlineChoiceName.trim()}
+                      disabled={
+                        onlineLoading ||
+                        !onlineChoiceName.trim() ||
+                        onlineChoiceLimitReached
+                      }
                     >
                       Add choice
                     </button>
                   </form>
+
+                  {onlineChoiceLimit > 0 && (
+                    <p>
+                      You added {onlineChoicesAddedByCurrentParticipant} of{' '}
+                      {onlineChoiceLimit} allowed choices.
+                    </p>
+                  )}
 
                   {onlineRoom.choices.length > 0 ? (
                     <ul className="online-choice-list">
@@ -3120,6 +3612,14 @@ function App() {
                   ) : onlineCurrentMatch ? (
                     <div className="online-vote-card">
                       <h4>{onlineCurrentMatch.match.label}</h4>
+                      <p>
+                        {onlineVoteSecondsRemaining !== undefined
+                          ? `${onlineVoteSecondsRemaining}s left`
+                          : 'Voting now'}
+                        {onlineRoom.tieBreakerRound > 0
+                          ? ` - revote ${onlineRoom.tieBreakerRound}`
+                          : ''}
+                      </p>
                       <div className="online-vote-options">
                         {onlineCurrentMatch.participants.map((choice) => {
                           const voteCount = Object.values(
@@ -3127,6 +3627,14 @@ function App() {
                           ).filter((choiceId) => choiceId === choice.id).length
                           const isSelected =
                             onlineCurrentVotes[onlineParticipantId] === choice.id
+                          const voterNames = onlineRoom.participants
+                            .filter(
+                              (participant) =>
+                                onlineCurrentVotes[participant.id] ===
+                                choice.id,
+                            )
+                            .map((participant) => participant.name)
+                            .join(', ')
 
                           return (
                             <button
@@ -3138,6 +3646,8 @@ function App() {
                             >
                               <span>{choice.name}</span>
                               <strong>{voteCount}</strong>
+                              {onlineRoom.settings.showVoterNames &&
+                                voterNames && <small>{voterNames}</small>}
                             </button>
                           )
                         })}

@@ -140,9 +140,21 @@ create table if not exists public.online_rooms (
   bracket_started boolean not null default false,
   winner_by_match_id jsonb not null default '{}'::jsonb,
   votes_by_match_id jsonb not null default '{}'::jsonb,
+  settings jsonb not null default '{"tieBreakerMode":"random","showVoterNames":false,"maxChoicesPerParticipant":0,"voteDurationSeconds":15}'::jsonb,
+  vote_round_started_at timestamptz,
+  tie_breaker_round integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.online_rooms
+  add column if not exists settings jsonb not null default '{"tieBreakerMode":"random","showVoterNames":false,"maxChoicesPerParticipant":0,"voteDurationSeconds":15}'::jsonb;
+
+alter table public.online_rooms
+  add column if not exists vote_round_started_at timestamptz;
+
+alter table public.online_rooms
+  add column if not exists tie_breaker_round integer not null default 0;
 
 alter table public.online_rooms enable row level security;
 

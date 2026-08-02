@@ -1,6 +1,6 @@
 # What2Pick Current State
 
-Last updated: 2026-07-26
+Last updated: 2026-08-02
 
 ## Confirmed Application State
 
@@ -198,6 +198,10 @@ Last updated: 2026-07-26
 - Implemented an MVP Online mode with Supabase-backed rooms, join codes, participants, shared choices, bracket start, match voting, automatic winner advancement, random tied-vote resolution after all participants vote, and polling refresh.
 - Extended `docs/supabase-schema.sql` with an `online_rooms` table and permissive MVP RLS policies for public room creation/read/update.
 - Online mode still needs real multi-device Supabase validation after running the updated schema.
+- Online room creation now supports configurable tie handling, voter-name visibility, participant choice limits, and per-match vote timers.
+- Online rooms now support invite links through `?room=CODE`, clipboard copy, WhatsApp sharing, and joining by pasted invite link.
+- Logged-in users can load saved choice-list templates into an online room before voting starts; loaded lists respect the configured participant choice limit.
+- `online_rooms` now requires `settings`, `vote_round_started_at`, and `tie_breaker_round` columns from the updated Supabase schema.
 - Verified `npm.cmd run test`, `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test:e2e` pass.
 
 ## Initial Memory Setup Notes

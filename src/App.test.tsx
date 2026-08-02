@@ -15,6 +15,7 @@ import { getOnlineMatchWinnerFromVotes } from './onlineVoting'
 afterEach(() => {
   cleanup()
   localStorage.clear()
+  window.history.pushState({}, '', '/')
   vi.restoreAllMocks()
 })
 
@@ -235,7 +236,20 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: /online mode/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /create room/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /join room/i })).toBeInTheDocument()
-    expect(screen.getByLabelText(/^room code$/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/room code or invite link/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/tie breaker/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/show who voted/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/choices per participant/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/voting time/i)).toBeInTheDocument()
+  })
+
+  it('prefills online room code from an invite link query string', async () => {
+    window.history.pushState({}, '', '/?room=ABC123')
+
+    render(<App />)
+
+    expect(screen.getByRole('heading', { name: /online mode/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/room code or invite link/i)).toHaveValue('ABC123')
   })
 
   it('decides tied online match votes randomly after everyone votes', () => {
